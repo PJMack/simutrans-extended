@@ -840,7 +840,7 @@ bool way_builder_t::is_allowed_step( const grund_t *from, const grund_t *to, sin
 	if(  welt->get_settings().get_way_height_clearance()==2  ) {
 		// cannot build if conversion factor 2, we aren't powerline and way with maximum speed > 0 or powerline 1 tile below except for roads, waterways and tram lines: but mark those as being a "low bridge" type that only allows some vehicles to pass.
 		grund_t *to2 = welt->lookup( to->get_pos() + koord3d(0, 0, -1) );
-		if(  to2 && (((bautyp&bautyp_mask)!=leitung && to2->get_weg_nr(0) && to2->get_weg_nr(0)->get_desc()->get_topspeed() > 0 && to2->get_weg_nr(0)->get_desc()->get_waytype() != water_wt && to2->get_weg_nr(0)->get_desc()->get_waytype() != road_wt && to2->get_weg_nr(0)->get_desc()->get_waytype() != tram_wt) || to2->get_leitung())  )
+		if(  to2 && (((bautyp&bautyp_mask)!=leitung && to2->get_weg_nr(0) && to2->get_weg_nr(0)->get_desc()->get_topspeed() > 0 && !to2->get_weg_nr(0)->get_desc()->is_low_clearence()) || to2->get_leitung())  )
 		{
 			return false;
 		}
@@ -986,7 +986,7 @@ bool way_builder_t::is_allowed_step( const grund_t *from, const grund_t *to, sin
 				}
 			}
 			if(grund_t *from2 = welt->lookup( from->get_pos() + koord3d(0, 0, 1) ) ){
-				if((desc->get_topspeed() > 0 && desc->get_waytype() != water_wt && desc->get_waytype() != road_wt && desc->get_waytype() != tram_wt) || (bautyp&bautyp_mask)==leitung){
+				if((desc->get_topspeed() > 0 && desc->is_low_clearence()) || (bautyp&bautyp_mask)==leitung){
 					ribimask = pier_t::get_below_ribi_total(from2);
 					if( (ribimask|zvribi)!=ribimask){
 							return false;

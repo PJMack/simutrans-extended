@@ -146,8 +146,10 @@ koord3d tunnel_builder_t::find_end_pos(player_t *player, koord3d pos, koord zv, 
 	waytype_t waytyp = desc->get_waytype();
 	// use the is_allowed_step routine of way_builder_t, needs an instance
 	way_builder_t bauigel(player);
-	bauigel.init_builder( way_builder_t::tunnel_flag | (way_builder_t::bautyp_t)waytyp, way_builder_t::weg_search( waytyp, 1, 0, type_flat ), desc);
+	bauigel.init_builder( (desc->get_is_half_height() ? way_builder_t::low_clearence_flag : (way_builder_t::bautyp_t)0) |  way_builder_t::tunnel_flag | (way_builder_t::bautyp_t)waytyp, way_builder_t::weg_search( waytyp, 1, 0, type_flat ), desc);
 	sint32 dummy;
+
+	bool firstTile=true;
 
 	while(true) {
 		pos = pos + zv;
@@ -284,6 +286,17 @@ koord3d tunnel_builder_t::find_end_pos(player_t *player, koord3d pos, koord zv, 
 		if (!full_tunnel) {
 			return pos;
 		}
+
+		//verify permissions to build tunnel
+		if(!gr && !firstTile){
+			tunnelboden_t from(pos - zv,slope_t::flat);
+			tunnelboden_t to(pos, slope_t::flat);
+			if(!bauigel.is_allowed_step(&from,&to,&dummy)){
+				return koord3d::invalid;
+			}
+		}
+		firstTile=false;
+
 		// All free - keep looking
 	}
 }

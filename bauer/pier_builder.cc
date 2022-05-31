@@ -290,9 +290,9 @@ void pier_builder_t::get_params_from_pos(pier_finder_params &params, koord3d pos
         }
         params.support_avail=pier_t::get_support_mask_total(gr2);
         if(gr2->get_weg_nr(0)){
-            params.below_way_ribi|=(gr2->get_weg_nr(0)->is_low_clearence(owner,false) || gr2->get_weg_hang())? 0 : gr2->get_weg_nr(0)->get_ribi_unmasked();
+            params.below_way_ribi|=(gr2->get_weg_nr(0)->is_low_clearence(owner) || gr2->get_weg_hang())? 0 : gr2->get_weg_nr(0)->get_ribi_unmasked();
             if(gr2->get_weg_nr(1)){
-                params.below_way_ribi|=(gr2->get_weg_nr(1)->is_low_clearence(owner,false) || gr2->get_weg_hang()) ? 0 : gr2->get_weg_nr(1)->get_ribi_unmasked();
+                params.below_way_ribi|=(gr2->get_weg_nr(1)->is_low_clearence(owner) || gr2->get_weg_hang()) ? 0 : gr2->get_weg_nr(1)->get_ribi_unmasked();
             }
             if(gr2->get_weg_hang()){
                 params.need_clearence=true;
@@ -304,11 +304,11 @@ void pier_builder_t::get_params_from_pos(pier_finder_params &params, koord3d pos
     }
     if(gr){
         if(gr->get_weg_nr(0)){
-            params.need_clearence=!gr->get_weg_nr(0)->is_low_clearence(owner,false);
+            params.need_clearence=!gr->get_weg_nr(0)->is_low_clearence(owner);
             params.below_way_ribi|=gr->get_weg_nr(0)->get_ribi_unmasked();
             if(gr->get_weg_nr(1)){
                 params.below_way_ribi|=!gr->get_weg_nr(1)->get_ribi_unmasked();
-                params.need_clearence|=gr->get_weg_nr(1)->is_low_clearence(owner,false);
+                params.need_clearence|=gr->get_weg_nr(1)->is_low_clearence(owner);
             }
             if(gr->get_weg_hang()){
                 params.need_clearence=true;
