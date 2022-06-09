@@ -1678,11 +1678,16 @@ void vehicle_t::hop(grund_t* gr)
 		calc_image();
 	}
 
-	enter_tile(gr); //"Enter field" (Google)
+	enter_tile(gr);
 	weg_t *weg = get_weg();
 	if(  weg  )	{
 		//const grund_t *gr_prev = welt->lookup(pos_prev);
 		//const weg_t * weg_prev = gr_prev != NULL ? gr_prev->get_weg(get_waytype()) : NULL;
+
+		if (weg_prev && weg_prev->get_desc()->get_styp() == type_runway && weg->get_desc()->get_styp() != type_runway)
+		{
+			unreserve_runway();
+		}
 
 		// Calculating the speed limit on the fly has the advantage of using up to date data - but there is no algorithm for taking into account the number of tiles of a bridge and thus the bridge weight limit using this mehtod.
 		//speed_limit = calc_speed_limit(weg, weg_prev, &pre_corner_direction, direction, previous_direction);
@@ -2305,18 +2310,18 @@ uint16 vehicle_t::get_reassigned_class(uint8 g_class) const
 }
 
 
-uint8 vehicle_t::get_number_of_accommodation_classes() const
+uint8 vehicle_t::get_number_of_fare_classes() const
 {
-	uint8 accommodation_classes = 0;
+	uint8 fare_classes = 0;
 	for (uint8 i = 0; i < number_of_classes; i++) {
 		if (get_fare_capacity(i)) {
-			accommodation_classes++;
+			fare_classes++;
 		}
 	}
-	if (!accommodation_classes && desc->get_overcrowded_capacity()) {
-		accommodation_classes++;
+	if (!fare_classes && desc->get_overcrowded_capacity()) {
+		fare_classes++;
 	}
-	return accommodation_classes;
+	return fare_classes;
 }
 
 

@@ -212,8 +212,14 @@ void gui_line_waiting_status_t::init()
 				);
 
 				if (show_name) {
-					gui_label_buf_t *lb = new_component<gui_label_buf_t>();
-					lb->buf().append(halt->get_name());
+					const bool can_serve = halt->can_serve(line);
+					gui_label_buf_t *lb = new_component<gui_label_buf_t>(can_serve ? SYSCOL_TEXT : COL_INACTIVE);
+					if (!can_serve) {
+						lb->buf().printf("(%s)", halt->get_name());
+					}
+					else {
+						lb->buf().append(halt->get_name());
+					}
 					lb->update();
 				}
 
@@ -1377,7 +1383,10 @@ bool schedule_list_gui_t::compare_convois(convoihandle_t const cnv1, convoihandl
 			cmp = strcmp(cnv1->get_internal_name(), cnv2->get_internal_name());
 			break;
 		case by_schedule:
-			cmp = cnv1->get_schedule()->get_current_stop() - cnv2->get_schedule()->get_current_stop();
+			cmp = cnv1->get_current_schedule_order() - cnv2->get_current_schedule_order();
+			if( cmp==0 ) {
+				cmp = cnv1->front()->get_route_index() - cnv2->front()->get_route_index();
+			}
 			break;
 		case by_profit:
 			cmp = sgn(cnv1->get_jahresgewinn() - cnv2->get_jahresgewinn());

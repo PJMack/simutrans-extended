@@ -808,6 +808,10 @@ public:
 	const koord3d get_schedule_target() const { return schedule_target; }
 	void set_schedule_target( koord3d t ) { schedule_target = t; }
 
+	// Sorting purpose for GUI
+	// Additional numbers will be assigned if convoy is moving backwards from the end of the schedule
+	uint16 get_current_schedule_order() const;
+
 	/**
 	* get line
 	*/
@@ -1109,6 +1113,7 @@ public:
 	* @see simwin
 	*/
 	void show_info();
+	void show_detail();
 
 	/**
 	* Get whether the convoi is traversing its schedule in reverse.
@@ -1155,7 +1160,6 @@ public:
 	* @param[out] buf Filled with freight description
 	*/
 	void get_freight_info(cbuffer_t & buf);
-	void get_freight_info_by_class(cbuffer_t & buf);
 	void set_sortby(uint8 order);
 	inline uint8 get_sortby() const { return freight_info_order; }
 	void force_resort() { freight_info_resort = true; }
