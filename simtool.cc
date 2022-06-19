@@ -5587,6 +5587,12 @@ DBG_MESSAGE("tool_station_aux()", "building %s on square %d,%d for waytype %x", 
 		return NOTICE_UNSUITABLE_GROUND;
 	}
 
+	if (bd->get_weg(wegtype)->get_desc()->is_tram() && wegtype == track_wt)
+	{
+		// Cannot build railway stations on street tramways
+		return "No suitable way on the ground!";
+	}
+
 	const char* msg=pier_t::check_building(desc,pos);
 	if(msg){
 		return msg;
@@ -11050,19 +11056,19 @@ bool tool_access_t::init(player_t *)
 /*
  * Add a message to the message queue
  */
-bool tool_add_message_t::init(player_t *player)
+const char* tool_add_message_t::work(player_t* player, koord3d pos )
 {
-	if (*default_param) {
+	if (default_param  &&  *default_param  ) {
 		uint32 type = atoi(default_param);
 		const char* text = strchr(default_param, ',');
-		if ((type & ~message_t::playermsg_flag) >= message_t::MAX_MESSAGE_TYPE  ||  text == NULL) {
-			return false;
-
+		if ((type & message_t::MESSAGE_TYPE_MASK) >= message_t::MAX_MESSAGE_TYPE  ||  text == NULL) {
+			return "";
 		}
-		welt->get_message()->add_message( text+1, koord::invalid, type,
-							    type & message_t::playermsg_flag ? color_idx_to_rgb(COL_BLACK) : PLAYER_FLAG|player->get_player_nr(), IMG_EMPTY );
+		welt->get_message()->add_message( text+1, pos.get_2d(), type,
+								player == NULL || ( (type & message_t::playermsg_flag) != 0)  ? color_idx_to_rgb(COL_BLACK) : PLAYER_FLAG|player->get_player_nr(), IMG_EMPTY );
+
 	}
-	return false;
+	return NULL;
 }
 
 

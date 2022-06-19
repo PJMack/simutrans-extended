@@ -93,8 +93,12 @@ private:
 	sint64 statistics[MAX_MONTH][MAX_FAB_GOODS_STAT];
 	sint64 weighted_sum_storage;
 
+	///factory links to supplier or consumer
+	vector_tpl<koord> links;
+
 	/// clears statistics, transit, and weighted_sum_storage
 	void init_stats();
+
 public:
 	ware_production_t() : type(NULL), menge(0), max(0)/*, transit(statistics[0][FAB_GOODS_TRANSIT])*/,
 		max_transit(0), index_offset(0)
@@ -147,8 +151,233 @@ public:
 	sint32 max_transit;
 
 	uint32 index_offset; // used for haltlist and consumers searches in verteile_waren to produce round robin results
+
+	const vector_tpl<koord>& get_links() const {return links;}
+	template<class StrictWeakOrdering>
+	void link_add(koord pos, StrictWeakOrdering T ){
+		links.insert_unique_ordered(pos, T);
+	}
+	bool link_contained(koord pos) const{
+		return links.is_contained(pos);
+	}
+	bool link_remove(koord pos){
+		return links.remove(pos);
+	}
+	uint32 link_count() const{
+		return links.get_count();
+	}
+	koord link_from_index(uint32 i) const{
+		return links[i];
+	}
+
+	vector_tpl<koord>::iterator link_begin() {
+		return links.begin();
+	}
+
+	vector_tpl<koord>::iterator link_end() {
+		return links.end();
+	}
+
+	vector_tpl<koord>::const_iterator link_begin() const{
+		return links.begin();
+	}
+
+	vector_tpl<koord>::const_iterator link_end() const{
+		return links.end();
+	}
 };
 
+class ware_link_iteratable_t{
+private:
+	array_tpl<ware_production_t> *ware_list;
+public:
+	ware_link_iteratable_t(array_tpl<ware_production_t> *list=0){
+		ware_list=list;
+	}
+	class iterator{
+	public:
+		typedef std::forward_iterator_tag	iterator_catagory;
+		typedef koord						value_type;
+		typedef ptrdiff_t					difference_type;
+		typedef value_type*					pointer;
+		typedef value_type&					reference;
+
+		iterator() {
+			ware_iterator=array_tpl<ware_production_t>::iterator();
+			koord_iterator=vector_tpl<koord>::iterator();
+		}
+
+		pointer operator ->() const {return &*koord_iterator;}
+		reference operator *() const {return *koord_iterator;}
+
+		iterator& operator ++(){
+			if(++koord_iterator == ware_iterator->link_end()){
+				for(;;){
+					if(++ware_iterator == ware_end){
+						ware_iterator=array_tpl<ware_production_t>::iterator();
+						koord_iterator=vector_tpl<koord>::iterator();
+						break;
+					}
+					if(ware_iterator->link_count()){
+						koord_iterator = ware_iterator->link_begin();
+						break;
+					}
+				}
+			}
+			return *this;
+		}
+
+		bool operator ==(iterator const& o) const {return ware_iterator==o.ware_iterator && koord_iterator==o.koord_iterator;}
+		bool operator !=(iterator const& o) const {return ware_iterator!=o.ware_iterator || koord_iterator!=o.koord_iterator;}
+
+
+	private:
+		array_tpl<ware_production_t>::iterator ware_iterator;
+		array_tpl<ware_production_t>::iterator ware_end;
+		vector_tpl<koord>::iterator koord_iterator;
+
+		iterator(array_tpl<ware_production_t>::iterator _ware_iterator, array_tpl<ware_production_t>::iterator _ware_end, vector_tpl<koord>::iterator _koord_iterator) : ware_iterator(_ware_iterator), ware_end(_ware_end), koord_iterator(_koord_iterator) {};
+
+		friend class ware_link_iteratable_t;
+	};
+
+	iterator begin() {
+		for(array_tpl<ware_production_t>::iterator ware_begin = ware_list->begin(); ware_begin != ware_list->end(); ++ware_begin){;
+			if(ware_begin->link_count()){
+				return iterator(ware_begin,ware_list->end(),ware_begin->link_begin());
+			}
+		}
+		return end();
+	}
+
+	iterator end(){
+		return iterator();
+	}
+
+	const koord operator[](uint32 i) const{
+		for(auto ware : *ware_list){
+			if(i < ware.link_count()){
+				return ware.link_from_index(i);
+			}
+			i-= ware.link_count();
+		}
+	}
+
+	uint32 get_count() const{
+		if(!ware_list) return 0;
+		uint32 cnt=0;
+		for(auto ware : *ware_list){
+			cnt+=ware.link_count();
+		}
+		return cnt;
+	}
+
+	bool empty() const {
+		if(!ware_list) return true;
+		for(auto ware : *ware_list){
+			if(ware.link_count()){
+				return false;
+			}
+		}
+		return true;
+	}
+};
+
+class ware_link_const_iteratable_t{
+private:
+	const array_tpl<ware_production_t> *ware_list;
+public:
+	ware_link_const_iteratable_t(const array_tpl<ware_production_t> *list=0){
+		ware_list=list;
+	}
+
+	class const_iterator{
+	public:
+		typedef std::forward_iterator_tag	iterator_catagory;
+		typedef koord						value_type;
+		typedef ptrdiff_t					difference_type;
+		typedef value_type const*					pointer;
+		typedef value_type const&					reference;
+
+		const_iterator() {
+			ware_iterator=array_tpl<ware_production_t>::iterator();
+			koord_iterator=vector_tpl<koord>::iterator();
+		}
+
+		pointer operator ->() const {return &*koord_iterator;}
+		reference operator *() const {return *koord_iterator;}
+
+		const_iterator& operator ++(){
+			if(++koord_iterator == ware_iterator->link_end()){
+				for(;;){
+					if(++ware_iterator == ware_end){
+						ware_iterator=array_tpl<ware_production_t>::iterator();
+						koord_iterator=vector_tpl<koord>::iterator();
+						break;
+					}
+					if(ware_iterator->link_count()){
+						koord_iterator = ware_iterator->link_begin();
+						break;
+					}
+				}
+			}
+			return *this;
+		}
+
+		bool operator ==(const_iterator const& o) const {return ware_iterator==o.ware_iterator && koord_iterator==o.koord_iterator;}
+		bool operator !=(const_iterator const& o) const {return ware_iterator!=o.ware_iterator || koord_iterator!=o.koord_iterator;}
+
+
+	private:
+		array_tpl<ware_production_t>::const_iterator ware_iterator;
+		array_tpl<ware_production_t>::const_iterator ware_end;
+		vector_tpl<koord>::const_iterator koord_iterator;
+
+		const_iterator(array_tpl<ware_production_t>::const_iterator _ware_iterator, array_tpl<ware_production_t>::const_iterator _ware_end, vector_tpl<koord>::const_iterator _koord_iterator) : ware_iterator(_ware_iterator), ware_end(_ware_end), koord_iterator(_koord_iterator) {};
+
+		friend class ware_link_const_iteratable_t;
+	};
+
+	const_iterator begin() const {
+		for(auto ware_begin = ware_list->begin(); ware_begin != ware_list->end(); ++ware_begin){;
+			if(ware_begin->link_count()){
+				return const_iterator(ware_begin,ware_list->end(),ware_begin->link_begin());
+			}
+		}
+		return end();
+	}
+
+	const_iterator end() const{
+		return const_iterator();
+	}
+
+	const koord operator[](uint32 i) const{
+		for(auto ware : *ware_list){
+			if(i < ware.link_count()){
+				return ware.link_from_index(i);
+			}
+			i-= ware.link_count();
+		}
+	}
+
+	uint32 get_count() const{
+		uint32 cnt=0;
+		for(auto ware : *ware_list){
+			cnt+=ware.link_count();
+		}
+		return cnt;
+	}
+
+	bool empty() const {
+		for(auto ware : *ware_list){
+			if(ware.link_count()){
+				return false;
+			}
+		}
+		return true;
+	}
+
+};
 
 /**
  * Factories produce and consume goods (ware_t) and supply nearby halts.
@@ -194,13 +423,9 @@ private:
 	void book_weighted_sums(sint64 delta_time);
 
 	/// Possible destinations for produced goods
+	/// Deprecated, only used for read/write
 	vector_tpl <koord> consumers;
 	uint32 consumers_active_last_month;
-
-	/**
-	 * suppliers to this factory
-	 */
-	vector_tpl <koord> suppliers;
 
 	/**
 	 * fields of this factory (only for farms etc.)
@@ -466,10 +691,31 @@ public:
 
 	void rotate90( const sint16 y_size );
 
-	const vector_tpl<koord>& get_consumers() const { return consumers; } // "Delivery destinations" (Google)
+	static const vector_tpl<koord> null_vector;
+
+	ware_link_iteratable_t get_consumers() { return ware_link_iteratable_t(&output); } // "Delivery destinations" (Google)
+	ware_link_const_iteratable_t get_consumers() const {return ware_link_const_iteratable_t(&output);}
+	const vector_tpl<koord>& get_consumers(const goods_desc_t* ware_type) const {
+		for(auto& ware : get_output()){
+			if(ware.get_typ()==ware_type){
+				return ware.get_links();
+			}
+		}
+		return null_vector;
+	}
 	bool is_consumer_active_at(koord consumer_pos ) const;
 
-	const vector_tpl<koord>& get_suppliers() const { return suppliers; }
+	ware_link_iteratable_t get_suppliers() { return ware_link_iteratable_t(&input); }
+	ware_link_const_iteratable_t get_suppliers() const {return ware_link_const_iteratable_t(&input);}
+	const vector_tpl<koord>& get_suppliers(const goods_desc_t* ware_type) const {
+		for(auto& ware : get_input()){
+			if(ware.get_typ()==ware_type){
+				return ware.get_links();
+			}
+		}
+		return null_vector;
+	}
+
 
 	const vector_tpl<nearby_halt_t>& get_nearby_freight_halts() const { return nearby_freight_halts; }
 
@@ -498,7 +744,7 @@ public:
 	/**
 	 * Adds a new delivery goal
 	 */
-	void add_consumer(koord ziel);
+	void add_consumer(koord ziel, const goods_desc_t *desc=0);
 	void remove_consumer(koord consumer_pos);
 
 	bool disconnect_consumer(koord consumer_pos);
@@ -507,7 +753,7 @@ public:
 	/**
 	 * adds a supplier
 	 */
-	void  add_supplier(koord pos);
+	void  add_supplier(koord pos, const goods_desc_t* desc=0);
 	void  remove_supplier(koord supplier_pos);
 
 	/**
@@ -643,7 +889,9 @@ public:
 	 * total and current procduction/storage values
 	 */
 	const array_tpl<ware_production_t>& get_input() const { return input; }
+	array_tpl<ware_production_t>& get_input() { return input; }
 	const array_tpl<ware_production_t>& get_output() const { return output; }
+	array_tpl<ware_production_t>& get_output() { return output; }
 
 	/**
 	 * Production multipliers
@@ -696,12 +944,12 @@ public:
 	/* adds a new supplier to this factory
 	 * fails if no matching goods are there
 	 */
-	bool add_supplier(fabrik_t* fab);
+	bool add_supplier(fabrik_t* fab, const goods_desc_t* product=0);
 
 	/* adds a new customer to this factory
 	 * fails if no matching goods are accepted
 	 */
-	bool add_customer(fabrik_t* fab);
+	bool add_customer(fabrik_t* fab, const goods_desc_t* product=0);
 
 	stadt_t* get_city() const { return city; }
 	void clear_city() { city = NULL; }
