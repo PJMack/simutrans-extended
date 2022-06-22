@@ -2972,10 +2972,14 @@ void fabrik_t::new_month()
 					//find which input ware types are new
 					vector_tpl<uint16> new_ware_indexes;
 					for(uint16 i = 0; i < desc->get_supplier_count(); i++){
+						bool is_new=true;
 						for(uint32 j = 0; j < input.get_count(); j++){
 							if(input[j].get_typ()==desc->get_supplier(i)->get_input_type()){
-								new_ware_indexes.append(i);
+								is_new=false;
 							}
+						}
+						if(is_new){
+							new_ware_indexes.append(i);
 						}
 					}
 
@@ -2984,7 +2988,7 @@ void fabrik_t::new_month()
 					uint32 kept_ware_index=0;
 					uint32 idx;
 					for(idx = 0; idx < input.get_count(); idx++){
-						if(idx==kept_ware_indexes[kept_ware_index]){
+						if(kept_ware_index < kept_ware_indexes.get_count() && idx==kept_ware_indexes[kept_ware_index]){
 							kept_ware_index++;
 						}else if(new_ware_index < new_ware_indexes.get_count()){
 							input[idx].set_typ(desc->get_supplier(new_ware_indexes[new_ware_index])->get_input_type());
@@ -3634,9 +3638,9 @@ bool fabrik_t::add_supplier(fabrik_t* fab, const goods_desc_t* product)
 
 bool fabrik_t::add_customer(fabrik_t* fab, const goods_desc_t* product)
 {
-	for(int i=0; i < fab->get_desc()->get_supplier_count(); i++) {
-		const factory_supplier_desc_t *supplier = fab->get_desc()->get_supplier(i);
-		const goods_desc_t *ware = supplier->get_input_type();
+	for(int i=0; i < fab->get_desc()->get_product_count(); i++) {
+		const factory_product_desc_t *production = fab->get_desc()->get_product(i);
+		const goods_desc_t *ware = production->get_output_type();
 
 			// connect to an existing one, if it is a consumer
 			if(fab!=this && get_output_stock(ware) > -1) {
