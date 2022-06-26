@@ -153,19 +153,24 @@ public:
 	uint32 index_offset; // used for haltlist and consumers searches in verteile_waren to produce round robin results
 
 	const vector_tpl<koord>& get_links() const {return links;}
+
 	template<class StrictWeakOrdering>
 	void link_add(koord pos, StrictWeakOrdering T ){
 		links.insert_unique_ordered(pos, T);
 	}
+
 	bool link_contained(koord pos) const{
 		return links.is_contained(pos);
 	}
+
 	bool link_remove(koord pos){
 		return links.remove(pos);
 	}
+
 	uint32 link_count() const{
 		return links.get_count();
 	}
+
 	koord link_from_index(uint32 i) const{
 		return links[i];
 	}
@@ -261,6 +266,19 @@ public:
 			}
 			i-= ware.link_count();
 		}
+	}
+
+	uint32 index_of(koord k) const {
+		uint32 i=0;
+		for(auto ware : *ware_list){
+			for(uint32 j=0; j < ware.link_count(); j++){
+				if(ware.link_from_index(j)==k){
+					return i;
+				}
+				i++;
+			}
+		}
+		return 0xFFFFFFFF;
 	}
 
 	uint32 get_count() const{
@@ -360,6 +378,19 @@ public:
 		}
 	}
 
+	uint32 index_of(koord k) const {
+		uint32 i=0;
+		for(auto ware : *ware_list){
+			for(uint32 j=0; j < ware.link_count(); j++){
+				if(ware.link_from_index(j)==k){
+					return i;
+				}
+				i++;
+			}
+		}
+		return 0xFFFFFFFF;
+	}
+
 	uint32 get_count() const{
 		uint32 cnt=0;
 		for(auto ware : *ware_list){
@@ -425,7 +456,7 @@ private:
 	/// Possible destinations for produced goods
 	/// Deprecated, only used for read/write
 	vector_tpl <koord> consumers;
-	uint32 consumers_active_last_month;
+	vector_tpl<uint32> consumers_active_this_month;
 
 	/**
 	 * fields of this factory (only for farms etc.)
@@ -704,6 +735,8 @@ public:
 		return null_vector;
 	}
 	bool is_consumer_active_at(koord consumer_pos ) const;
+	void set_consumer_active_at(koord consumer_pos );
+	void reset_consumer_active();
 
 	ware_link_iteratable_t get_suppliers() { return ware_link_iteratable_t(&input); }
 	ware_link_const_iteratable_t get_suppliers() const {return ware_link_const_iteratable_t(&input);}

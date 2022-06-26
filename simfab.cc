@@ -782,7 +782,6 @@ fabrik_t::fabrik_t(loadsave_t* file) :
 	power = 0;
 	power_demand = 0;
 	prodfactor_electric = 0;
-	consumers_active_last_month = 0;
 	city = NULL;
 	building = NULL;
 	pos = koord3d::invalid;
@@ -855,7 +854,6 @@ fabrik_t::fabrik_t(koord3d pos_, player_t* owner, const factory_desc_t* desc, si
 	total_input = total_transit = total_output = 0;
 	sector = unknown;
 	status = nothing;
-	consumers_active_last_month = 0;
 	city = check_local_city();
 
 	if(desc->get_placement() == 2 && city && desc->get_product_count() == 0 && !desc->is_electricity_producer())
@@ -922,6 +920,8 @@ fabrik_t::fabrik_t(koord3d pos_, player_t* owner, const factory_desc_t* desc, si
 		const factory_product_desc_t *const product = desc->get_product(g);
 		output[g].set_typ( product->get_output_type() );
 	}
+
+	reset_consumer_active();
 
 	recalc_storage_capacities();
 	if (input.empty()) {
@@ -1317,6 +1317,7 @@ void fabrik_t::rdwr(loadsave_t *file)
 	sint32 input_count;
 	sint32 output_count;
 	sint32 consumers_count;
+	uint8 sub_version=1; //4 bit local version number
 
 	if(  file->is_saving()  ) {
 		input_count = input.get_count();
@@ -1345,8 +1346,16 @@ DBG_DEBUG("fabrik_t::rdwr()","loading factory '%s'",s);
 		}
 	}
 	pos_origin.rdwr(file);
+
+	//hide version information in upper nibble of rotate
+	rotate &= 0xF;
+	rotate |= sub_version << 4;
+
 	// pos will be assigned after call to hausbauer_t::build
 	file->rdwr_byte(rotate);
+
+	sub_version = rotate >> 4;
+	rotate &= 0xF;
 
 	// now rebuilt information for received goods
 	file->rdwr_long(input_count);
@@ -1611,13 +1620,29 @@ DBG_DEBUG("fabrik_t::rdwr()","loading factory '%s'",s);
 		consumers[i].rdwr(file);
 	}
 
-	if(  file->is_version_atleast(112, 2)  ) {
-		file->rdwr_long(consumers_active_last_month );
+	if(sub_version>=1){
+		uint32 consumers_active_this_month_count=consumers_active_this_month.get_count();
+		file->rdwr_long(consumers_active_this_month_count);
+		for(uint32 i = 0; i < consumers_active_this_month_count; i++){
+		if(file->is_loading()){
+			consumers_active_this_month.append(0);
+		}
+		file->rdwr_long(consumers_active_this_month[i]);
+		}
+	}else if(  file->is_version_atleast(112, 2)  ) {
+		uint32 dummy=0; //old consumers_active_last_month
+		file->rdwr_long(dummy);
 	}
 
 	// suppliers / consumers will be recalculated in finish_rd
 	if (file->is_loading()  &&  welt->get_settings().is_crossconnect_factories()) {
 		consumers.clear();
+		consumers.resize(0);
+	}
+
+	if(file->is_saving()){
+		consumers.clear();
+		consumers.resize(0);
 	}
 
 	// information on fields ...
@@ -2102,14 +2127,31 @@ sint32 fabrik_t::goods_needed(const goods_desc_t *typ) const
 
 bool fabrik_t::is_consumer_active_at(koord consumer_pos ) const
 {
-	//FIXTHIS
-	if ( consumers.is_contained(consumer_pos) ) {
-		return 0 < (( 1 << consumers.index_of(consumer_pos) ) & consumers_active_last_month );
+	uint32 idx=get_consumers().index_of(consumer_pos);
+
+	if(idx>>5 >= consumers_active_this_month.get_count()){
+		return false;
 	}
-	return false;
+
+	return 0 < ( ( 1 << (idx & 0x1F ) ) & consumers_active_this_month[idx>>5] );
+}
+
+void fabrik_t::set_consumer_active_at(koord consumer_pos){
+	uint32 idx=get_consumers().index_of(consumer_pos);
+	if(idx>>5 >= consumers_active_this_month.get_count()){
+		return;
+	}
+	consumers_active_this_month[idx>>5] |= 1 << (idx & 0x1F ) ;
 }
 
 
+void fabrik_t::reset_consumer_active(){
+	consumers_active_this_month.resize((get_consumers().get_count()>>5) + 1);
+	consumers_active_this_month.set_count((get_consumers().get_count()>>5) + 1);
+	for(auto& i : consumers_active_this_month){
+		i=0;
+	}
+}
 
 void fabrik_t::step(uint32 delta_t)
 {
@@ -2676,6 +2718,7 @@ void fabrik_t::verteile_waren(const uint32 product)
 		// add as active destination
 		//FIXTHIS
 		//consumers_active_last_month |= (1 << consumers.index_of(best_ware.get_zielpos()));
+		set_consumer_active_at(best_ware.get_zielpos());
 		output[product].book_stat(best_ware.menge, FAB_GOODS_DELIVERED);
 	}
 }
@@ -2720,7 +2763,7 @@ void fabrik_t::new_month()
 	for (uint32 out = 0; out < output.get_count(); out++) {
 		output[out].roll_stats(desc->get_product(out)->get_factor(), aggregate_weight);
 	}
-	consumers_active_last_month = 0;
+	reset_consumer_active();
 
 	// calculate weighted averages
 	if(  aggregate_weight>0  ) {
@@ -3476,6 +3519,9 @@ void fabrik_t::finish_rd()
 	}
 	consumers.clear();
 	consumers.resize(0);
+	if(consumers_active_this_month.empty()){
+		reset_consumer_active();
+	}
 
 	// Set field production
 	adjust_production_for_fields(true);
