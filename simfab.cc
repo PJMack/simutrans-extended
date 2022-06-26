@@ -706,9 +706,9 @@ bool fabrik_t::disconnect_consumer(koord consumer_pos) //Returns true if must be
 
 			for(uint32 k = 0; k < unfulfilled_requirements.get_count(); k++){
 				auto unfilled_product = unfulfilled_requirements[k];
-				for (uint32 j = 0; j < fab_desc->get_product_count(); j++)
+				for (uint32 j = 0; j < fab_desc->get_supplier_count(); j++)
 				{
-					if(unfilled_product == fab_desc->get_product(j)->get_output_type()) {
+					if(unfilled_product == fab_desc->get_supplier(j)->get_input_type()) {
 						add_customer(fab,unfilled_product);
 						unfulfilled_requirements.remove(unfilled_product);
 						k--;
@@ -3210,10 +3210,8 @@ void fabrik_t::recalc_factory_status()
 		}
 	}
 	if (sector==marine_resource && !get_consumers().get_count()) {
-		if (!add_customer(this)) {
-			status = missing_consumer;
-			return;
-		}
+		status = missing_consumer;
+		return;
 	}
 
 	// now calculate status bar for sane factory
@@ -3684,12 +3682,16 @@ bool fabrik_t::add_supplier(fabrik_t* fab, const goods_desc_t* product)
 
 bool fabrik_t::add_customer(fabrik_t* fab, const goods_desc_t* product)
 {
-	for(int i=0; i < fab->get_desc()->get_product_count(); i++) {
-		const factory_product_desc_t *production = fab->get_desc()->get_product(i);
-		const goods_desc_t *ware = production->get_output_type();
+	if(fab==this){
+		return false;
+	}
+
+	for(int i=0; i < fab->get_desc()->get_supplier_count(); i++) {
+		const factory_supplier_desc_t *production = fab->get_desc()->get_supplier(i);
+		const goods_desc_t *ware = production->get_input_type();
 
 			// connect to an existing one, if it is a consumer
-			if(fab!=this && get_output_stock(ware) > -1) {
+			if(ware == product) {
 				// add this factory
 				add_consumer(fab->pos.get_2d(),product);
 				return true;
