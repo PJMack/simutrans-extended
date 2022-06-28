@@ -3034,6 +3034,7 @@ void fabrik_t::new_month()
 						if(kept_ware_index < kept_ware_indexes.get_count() && idx==kept_ware_indexes[kept_ware_index]){
 							kept_ware_index++;
 						}else if(new_ware_index < new_ware_indexes.get_count()){
+							input[idx]=ware_production_t();
 							input[idx].set_typ(desc->get_supplier(new_ware_indexes[new_ware_index])->get_input_type());
 							new_ware_index++;
 						}else if(kept_ware_index < kept_ware_indexes.get_count()){
