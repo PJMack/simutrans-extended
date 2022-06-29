@@ -2992,20 +2992,24 @@ void fabrik_t::new_month()
 
 					bool disconnect_supplier_checked = false;
 					bool must_close = false;
+					array_tpl<ware_production_t> new_input;
+					new_input.resize(desc->get_supplier_count());
+
 					vector_tpl<uint32> kept_ware_indexes;
-					//find and unlink obsolete input ware types
+					//find and unlink obsolete input ware types, backup existing types
 					for(uint32 j = 0; j < input.get_count(); j++){
 						auto &ware = input[j];
 						bool keep_ware=false;
+
 						for(uint16 i = 0; i < desc->get_supplier_count(); i++){
 							if(ware.get_typ()==desc->get_supplier(i)->get_input_type()){
 								keep_ware=true;
+								new_input[i]=input[j];
+								kept_ware_indexes.append(i);
 								break;
 							}
 						}
-						if(keep_ware){
-							kept_ware_indexes.append(j);
-						}else{
+						if(!keep_ware){
 							for(uint32 i = ware.link_count()-1; i < ware.link_count(); i--){
 								must_close = disconnect_supplier(ware.link_from_index(i));
 								disconnect_supplier_checked=true;
@@ -3026,26 +3030,16 @@ void fabrik_t::new_month()
 						}
 					}
 
-					//rearange input wares keeping data transfers minimal
-					uint32 new_ware_index=0;
-					uint32 kept_ware_index=0;
-					uint32 idx;
-					for(idx = 0; idx < input.get_count(); idx++){
-						if(kept_ware_index < kept_ware_indexes.get_count() && idx==kept_ware_indexes[kept_ware_index]){
-							kept_ware_index++;
-						}else if(new_ware_index < new_ware_indexes.get_count()){
-							input[idx]=ware_production_t();
-							input[idx].set_typ(desc->get_supplier(new_ware_indexes[new_ware_index])->get_input_type());
-							new_ware_index++;
-						}else if(kept_ware_index < kept_ware_indexes.get_count()){
-							input[idx]=input[kept_ware_indexes[kept_ware_index]];
-							kept_ware_index++;
-						}
-					}
+					//initialize new items
 					input.resize(desc->get_supplier_count());
-					for(;idx<input.get_count(); idx++){
-						input[idx].set_typ(desc->get_supplier(new_ware_indexes[new_ware_index])->get_input_type());
-						new_ware_index++;
+					for(auto i : new_ware_indexes){
+						input[i]=ware_production_t();
+						input[i].set_typ(desc->get_supplier(i)->get_input_type());
+					}
+
+					//transfer old items
+					for(auto i : kept_ware_indexes){
+						input[i]=new_input[i];
 					}
 
 					if (!disconnect_supplier_checked)

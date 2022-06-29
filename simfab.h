@@ -926,6 +926,35 @@ public:
 	const array_tpl<ware_production_t>& get_output() const { return output; }
 	array_tpl<ware_production_t>& get_output() { return output; }
 
+	const ware_production_t* get_input(const goods_desc_t* ware_type) const{
+		for(uint16 i = 0; i < input.get_count(); i++){
+			if(input[i].get_typ()==ware_type){
+				return &input[i];
+			}
+		}
+	}
+	ware_production_t* get_input(const goods_desc_t* ware_type) {
+		for(uint16 i = 0; i < input.get_count(); i++){
+			if(input[i].get_typ()==ware_type){
+				return &input[i];
+			}
+		}
+	}
+	const ware_production_t* get_output(const goods_desc_t* ware_type) const{
+		for(uint16 i = 0; i < output.get_count(); i++){
+			if(output[i].get_typ()==ware_type){
+				return &output[i];
+			}
+		}
+	}
+	ware_production_t* get_output(const goods_desc_t* ware_type) {
+		for(uint16 i = 0; i < output.get_count(); i++){
+			if(output[i].get_typ()==ware_type){
+				return &output[i];
+			}
+		}
+	}
+
 	/**
 	 * Production multipliers
 	 */
