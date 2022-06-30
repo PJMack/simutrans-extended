@@ -2992,8 +2992,8 @@ void fabrik_t::new_month()
 
 					bool disconnect_supplier_checked = false;
 					bool must_close = false;
-					array_tpl<ware_production_t> new_input;
-					new_input.resize(desc->get_supplier_count());
+					array_tpl<ware_production_t> new_array;
+					new_array.resize(desc->get_supplier_count());
 
 					vector_tpl<uint32> kept_ware_indexes;
 					//find and unlink obsolete input ware types, backup existing types
@@ -3004,7 +3004,7 @@ void fabrik_t::new_month()
 						for(uint16 i = 0; i < desc->get_supplier_count(); i++){
 							if(ware.get_typ()==desc->get_supplier(i)->get_input_type()){
 								keep_ware=true;
-								new_input[i]=input[j];
+								new_array[i]=input[j];
 								kept_ware_indexes.append(i);
 								break;
 							}
@@ -3039,7 +3039,7 @@ void fabrik_t::new_month()
 
 					//transfer old items
 					for(auto i : kept_ware_indexes){
-						input[i]=new_input[i];
+						input[i]=new_array[i];
 					}
 
 					if (!disconnect_supplier_checked)
@@ -3052,11 +3052,52 @@ void fabrik_t::new_month()
 
 					if (!must_close)
 					{
-						// create output information
+						//find and unlink obsolete output ware types, backup existing types
+						new_array.resize(desc->get_product_count());
+						kept_ware_indexes.clear();
+						for(uint32 j = 0; j < output.get_count(); j++){
+							auto &ware = output[j];
+							bool keep_ware=false;
+
+							for(uint16 i = 0; i < desc->get_product_count(); i++){
+								if(ware.get_typ()==desc->get_product(i)->get_output_type()){
+									keep_ware=true;
+									new_array[i]=output[j];
+									kept_ware_indexes.append(i);
+									break;
+								}
+							}
+							if(!keep_ware){
+								for(uint32 i = ware.link_count()-1; i < ware.link_count(); i--){
+									must_close = disconnect_consumer(ware.link_from_index(i));
+									disconnect_supplier_checked=true;
+								}
+							}
+						}
+						new_ware_indexes.clear();
+						//find which output ware types are new
+						for(uint16 i = 0; i < desc->get_product_count(); i++){
+							bool is_new=true;
+							for(uint32 j = 0; j < output.get_count(); j++){
+								if(output[j].get_typ()==desc->get_product(i)->get_output_type()){
+									is_new=false;
+								}
+							}
+							if(is_new){
+								new_ware_indexes.append(i);
+							}
+						}
+
+						//initialize new items
 						output.resize(desc->get_product_count());
-						for (uint g = 0; g < desc->get_product_count(); ++g) {
-							const factory_product_desc_t* const product = desc->get_product(g);
-							output[g].set_typ(product->get_output_type());
+						for(auto i : new_ware_indexes){
+							output[i]=ware_production_t();
+							output[i].set_typ(desc->get_product(i)->get_output_type());
+						}
+
+						//transfer old items
+						for(auto i : kept_ware_indexes){
+							output[i]=new_array[i];
 						}
 
 						recalc_storage_capacities();
