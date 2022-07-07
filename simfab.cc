@@ -572,24 +572,18 @@ void fabrik_t::recalc_storage_capacities()
 			const sint32 share = (sint32)(((sint64)field_capacities << precision_bits) / (sint64)ware_types);
 			// first, for input goods
 			FOR(array_tpl<ware_production_t>, &g, input) {
-				for (int b = 0; b<desc->get_supplier_count(); ++b) {
-					const factory_supplier_desc_t *const input = desc->get_supplier(b);
-					if (g.get_typ() == input->get_input_type()) {
-						// Inputs are now normalized to factory production.
-						uint32 prod_factor = input->get_consumption();
-						g.max = (sint32)(welt->scale_for_distance_only((((sint64)((input->get_capacity() << precision_bits) + share) << DEFAULT_PRODUCTION_FACTOR_BITS) + (sint64)(prod_factor - 1)) / (sint64)prod_factor));
-					}
+				if(const factory_supplier_desc_t *const input = desc->get_supplier(g.get_typ())){
+					// Inputs are now normalized to factory production.
+					uint32 prod_factor = input->get_consumption();
+					g.max = (sint32)(welt->scale_for_distance_only((((sint64)((input->get_capacity() << precision_bits) + share) << DEFAULT_PRODUCTION_FACTOR_BITS) + (sint64)(prod_factor - 1)) / (sint64)prod_factor));
 				}
 			}
 			// then, for output goods
 			FOR(array_tpl<ware_production_t>, &g, output) {
-				for (uint b = 0; b<desc->get_product_count(); ++b) {
-					const factory_product_desc_t *const output = desc->get_product(b);
-					if (g.get_typ() == output->get_output_type()) {
-						// Outputs are now normalized to factory production.
-						uint32 prod_factor = output->get_factor();
-						g.max = (sint32)(welt->scale_for_distance_only((((sint64)((output->get_capacity() << precision_bits) + share) << DEFAULT_PRODUCTION_FACTOR_BITS) + (sint64)(prod_factor - 1)) / (sint64)prod_factor));
-					}
+				if(const factory_product_desc_t *const output = desc->get_product(g.get_typ())){
+					// Outputs are now normalized to factory production.
+					uint32 prod_factor = output->get_factor();
+					g.max = (sint32)(welt->scale_for_distance_only((((sint64)((output->get_capacity() << precision_bits) + share) << DEFAULT_PRODUCTION_FACTOR_BITS) + (sint64)(prod_factor - 1)) / (sint64)prod_factor));
 				}
 			}
 		}
@@ -598,24 +592,18 @@ void fabrik_t::recalc_storage_capacities()
 		// without fields -> scaling based on prodbase
 		// first, for input goods
 		FOR(array_tpl<ware_production_t>, &g, input) {
-			for (int b = 0; b<desc->get_supplier_count(); ++b) {
-				const factory_supplier_desc_t *const input = desc->get_supplier(b);
-				if (g.get_typ() == input->get_input_type()) {
-					// Inputs are now normalized to factory production.
-					uint32 prod_factor = input->get_consumption();
-					g.max = (sint32)(welt->scale_for_distance_only(((((sint64)input->get_capacity() * (sint64)prodbase) << (precision_bits + DEFAULT_PRODUCTION_FACTOR_BITS)) + (sint64)(prod_factor - 1)) / ((sint64)desc->get_productivity() * (sint64)prod_factor)));
-				}
+			if(const factory_supplier_desc_t *const input = desc->get_supplier(g.get_typ())){
+				// Inputs are now normalized to factory production.
+				uint32 prod_factor = input->get_consumption();
+				g.max = (sint32)(welt->scale_for_distance_only(((((sint64)input->get_capacity() * (sint64)prodbase) << (precision_bits + DEFAULT_PRODUCTION_FACTOR_BITS)) + (sint64)(prod_factor - 1)) / ((sint64)desc->get_productivity() * (sint64)prod_factor)));
 			}
 		}
 		// then, for output goods
 		FOR(array_tpl<ware_production_t>, &g, output) {
-			for (uint b = 0; b<desc->get_product_count(); ++b) {
-				const factory_product_desc_t *const output = desc->get_product(b);
-				if (g.get_typ() == output->get_output_type()) {
-					// Outputs are now normalized to factory production.
-					uint32 prod_factor = output->get_factor();
-					g.max = (sint32)(welt->scale_for_distance_only(((((sint64)output->get_capacity() * (sint64)prodbase) << (precision_bits + DEFAULT_PRODUCTION_FACTOR_BITS)) + (sint64)(prod_factor - 1)) / ((sint64)desc->get_productivity() * (sint64)prod_factor)));
-				}
+			if(const factory_product_desc_t *const output = desc->get_product(g.get_typ())){
+				// Outputs are now normalized to factory production.
+				uint32 prod_factor = output->get_factor();
+				g.max = (sint32)(welt->scale_for_distance_only(((((sint64)output->get_capacity() * (sint64)prodbase) << (precision_bits + DEFAULT_PRODUCTION_FACTOR_BITS)) + (sint64)(prod_factor - 1)) / ((sint64)desc->get_productivity() * (sint64)prod_factor)));
 			}
 		}
 	}
@@ -2716,8 +2704,6 @@ void fabrik_t::verteile_waren(const uint32 product)
 		}
 		fabrik_t::update_transit( best_ware, true );
 		// add as active destination
-		//FIXTHIS
-		//consumers_active_last_month |= (1 << consumers.index_of(best_ware.get_zielpos()));
 		set_consumer_active_at(best_ware.get_zielpos());
 		output[product].book_stat(best_ware.menge, FAB_GOODS_DELIVERED);
 	}
@@ -3721,17 +3707,11 @@ bool fabrik_t::add_customer(fabrik_t* fab, const goods_desc_t* product)
 	if(fab==this){
 		return false;
 	}
-
-	for(int i=0; i < fab->get_desc()->get_supplier_count(); i++) {
-		const factory_supplier_desc_t *production = fab->get_desc()->get_supplier(i);
-		const goods_desc_t *ware = production->get_input_type();
-
-			// connect to an existing one, if it is a consumer
-			if(ware == product) {
-				// add this factory
-				add_consumer(fab->pos.get_2d(),product);
-				return true;
-			}
+	// connect to an existing one, if it is a consumer
+	if(fab->get_desc()->get_supplier(product)) {
+		// add this factory
+		add_consumer(fab->pos.get_2d(),product);
+		return true;
 	}
 	return false;
 }
