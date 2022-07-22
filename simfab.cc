@@ -3780,8 +3780,6 @@ gebaeude_t* fabrik_t::get_building()
 
 void fabrik_t::calc_max_intransit_percentages()
 {
-	max_intransit_percentages.clear();
-
 	if(!path_explorer_t::get_paths_available(path_explorer_t::get_current_compartment_category()))
 	{
 		has_calculated_intransit_percentages = false;
@@ -3791,23 +3789,21 @@ void fabrik_t::calc_max_intransit_percentages()
 	has_calculated_intransit_percentages = true;
 	const uint16 base_max_intransit_percentage = welt->get_settings().get_factory_maximum_intransit_percentage();
 
+	if(base_max_intransit_percentage == 0)
+	{
+		// Zero is code for the feature being disabled, so do not attempt to modify this value.
+		return;
+	}
+
 	uint32 index = 0;
 	FOR(array_tpl<ware_production_t>, &w, input)
 	{
 		const uint8 catg = w.get_typ()->get_catg();
-		if(base_max_intransit_percentage == 0)
-		{
-			// Zero is code for the feature being disabled, so do not attempt to modify this value.
-			max_intransit_percentages.put(catg, base_max_intransit_percentage);
-			index ++;
-			continue;
-		}
 
 		const uint32 lead_time = get_lead_time(w.get_typ());
 		if(lead_time == UINT32_MAX_VALUE)
 		{
 			// No factories connected; use the default intransit percentage for now.
-			max_intransit_percentages.put(catg, base_max_intransit_percentage);
 			input[index].max_transit = max(1, ((sint64)base_max_intransit_percentage * input[index].max) / 100); // This puts max_transit in internal units
 			index ++;
 			continue;
@@ -3815,18 +3811,9 @@ void fabrik_t::calc_max_intransit_percentages()
 		const uint32 time_to_consume = max(1u, get_time_to_consume_stock(index));
 		const sint32 ratio = ((sint32)lead_time * 1000 / (sint32)time_to_consume);
 		const sint32 modified_max_intransit_percentage = (ratio * (sint64)base_max_intransit_percentage) / 1000;
-		max_intransit_percentages.put(catg, (uint16)modified_max_intransit_percentage);
 		input[index].max_transit = max(1, (modified_max_intransit_percentage * input[index].max) / 100); // This puts max_transit in internal units
 		index ++;
 	}
-}
-
-uint16 fabrik_t::get_max_intransit_percentage(uint32 index)
-{
-	if (!input.get_count() || input.get_count() < index ) {
-		return 0;
-	}
-	return max_intransit_percentages.get(input[index].get_typ()->get_catg());
 }
 
 uint32 fabrik_t::get_total_input_capacity() const

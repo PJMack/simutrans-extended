@@ -521,10 +521,6 @@ private:
 	array_tpl<ware_production_t> input; /// array for input/consumed goods
 	array_tpl<ware_production_t> output; /// array for output/produced goods
 
-	// The adjusted "max intransit percentage" for each type of input goods
-	// indexed against the catg of each "input" (the input goods).
-	inthashtable_tpl<uint8, uint16, N_BAGS_SMALL> max_intransit_percentages;
-
 	/// Accumulated time since last production
 	sint32 delta_t_sum;
 	uint32 delta_amount;
@@ -1014,7 +1010,6 @@ public:
 	inline uint32 get_base_mail_demand() const { return arrival_stats_mail.get_scaled_demand(); }
 
 	void calc_max_intransit_percentages();
-	uint16 get_max_intransit_percentage(uint32 index);
 
 	// Average journey time to delivery goods of this type
 	uint32 get_lead_time (const goods_desc_t* wtype);
