@@ -106,18 +106,12 @@ void ware_production_t::init_stats()
 			statistics[m][s] = 0;
 		}
 	}
-	weighted_sum_storage = 0;
 	max_transit = 0;
 }
 
 
-void ware_production_t::roll_stats(uint32 factor, sint64 aggregate_weight)
+void ware_production_t::roll_stats(uint32 factor)
 {
-	// calculate weighted average storage first
-	if(  aggregate_weight>0  ) {
-		set_stat( weighted_sum_storage / aggregate_weight, FAB_GOODS_STORAGE );
-	}
-
 	for(  int s=0;  s<MAX_FAB_GOODS_STAT;  ++s  ) {
 		for(  int m=MAX_MONTH-1;  m>0;  --m  ) {
 			statistics[m][s] = statistics[m-1][s];
@@ -130,7 +124,6 @@ void ware_production_t::roll_stats(uint32 factor, sint64 aggregate_weight)
 			statistics[0][s] = 0;
 		}
 	}
-	weighted_sum_storage = 0;
 
 	// restore current storage level
 	set_stat((sint64)menge * (sint64)factor, FAB_GOODS_STORAGE);
@@ -153,13 +146,14 @@ void ware_production_t::rdwr(loadsave_t *file)
 		}
 	}
 
+	sint64 dummy=0;
 	if(  file->is_version_atleast(112, 1)  ) {
 		for(  int s=0;  s<MAX_FAB_GOODS_STAT;  ++s  ) {
 			for(  int m=0;  m<MAX_MONTH;  ++m  ) {
 				file->rdwr_longlong( statistics_buf[m][s] );
 			}
 		}
-		file->rdwr_longlong( weighted_sum_storage );
+		file->rdwr_longlong( dummy );
 	}
 	else if(  file->is_version_atleast(110, 5)  ) {
 		// save/load statistics
@@ -168,7 +162,7 @@ void ware_production_t::rdwr(loadsave_t *file)
 				file->rdwr_longlong( statistics_buf[m][s] );
 			}
 		}
-		file->rdwr_longlong( weighted_sum_storage );
+		file->rdwr_longlong( dummy );
 	}
 
 	if (file->is_loading()) {
@@ -191,10 +185,9 @@ void ware_production_t::rdwr(loadsave_t *file)
 }
 
 
-void ware_production_t::book_weighted_sum_storage(uint32 factor, sint64 delta_time)
+void ware_production_t::book_weighted_sum_storage(uint32 factor)
 {
 	const sint64 amount = (sint64)menge * (sint64)factor;
-	weighted_sum_storage += amount * delta_time;
 	set_stat(amount, FAB_GOODS_STORAGE);
 }
 
@@ -307,38 +300,26 @@ void fabrik_t::init_stats()
 			statistics[m][s] = 0;
 		}
 	}
-	weighted_sum_production = 0;
-	weighted_sum_boost_electric = 0;
-	weighted_sum_boost_pax = 0;
-	weighted_sum_boost_mail = 0;
-	weighted_sum_power = 0;
-	aggregate_weight = 0;
 }
 
 
-void fabrik_t::book_weighted_sums(sint64 delta_time)
+void fabrik_t::book_weighted_sums()
 {
-	aggregate_weight += delta_time;
-
 	// storage level of input/output stores
 	for (uint32 in = 0; in < input.get_count(); in++) {
-		input[in].book_weighted_sum_storage(desc->get_supplier(in)->get_consumption(), delta_time);
+		input[in].book_weighted_sum_storage(desc->get_supplier(in)->get_consumption());
 	}
 	for (uint32 out = 0; out < output.get_count(); out++) {
-		output[out].book_weighted_sum_storage(desc->get_product(out)->get_factor(), delta_time);
+		output[out].book_weighted_sum_storage(desc->get_product(out)->get_factor());
 	}
 
 	// production rate
 	set_stat(calc_operation_rate(0), FAB_PRODUCTION);
 
 	// electricity, pax and mail boosts
-	weighted_sum_boost_electric += prodfactor_electric * delta_time;
 	set_stat(prodfactor_electric, FAB_BOOST_ELECTRIC);
-	weighted_sum_boost_pax += prodfactor_pax * delta_time;
-	weighted_sum_boost_mail += prodfactor_mail * delta_time;
 
 	// power produced or consumed
-	weighted_sum_power += power * delta_time;
 	if (!desc->is_electricity_producer()) {
 		set_stat(power*1000, FAB_POWER); // convert MW to KW
 	}
@@ -1724,12 +1705,13 @@ DBG_DEBUG("fabrik_t::rdwr()","loading factory '%s'",s);
 				}
 			}
 		}
-		file->rdwr_longlong( weighted_sum_production );
-		file->rdwr_longlong( weighted_sum_boost_electric );
-		file->rdwr_longlong( weighted_sum_boost_pax );
-		file->rdwr_longlong( weighted_sum_boost_mail );
-		file->rdwr_longlong( weighted_sum_power );
-		file->rdwr_longlong( aggregate_weight );
+		sint64 dummy;
+		file->rdwr_longlong( dummy );
+		file->rdwr_longlong( dummy );
+		file->rdwr_longlong( dummy );
+		file->rdwr_longlong( dummy );
+		file->rdwr_longlong( dummy );
+		file->rdwr_longlong( dummy );
 		file->rdwr_long( delta_slot );
 	}
 	else if(  file->is_loading()  ) {
@@ -2347,7 +2329,7 @@ void fabrik_t::step(uint32 delta_t)
 	}
 
 	// increment weighted sums for average statistics
-	book_weighted_sums(delta_t);
+	book_weighted_sums();
 
 	// not a power station => then consume all electricity ...
 	if(  !desc->is_electricity_producer()  ) {
@@ -2744,26 +2726,12 @@ void fabrik_t::new_month()
 {
 	// update statistics for input and output goods
 	for (uint32 in = 0; in < input.get_count(); in++) {
-		input[in].roll_stats(desc->get_supplier(in)->get_consumption(), aggregate_weight);
+		input[in].roll_stats(desc->get_supplier(in)->get_consumption());
 	}
 	for (uint32 out = 0; out < output.get_count(); out++) {
-		output[out].roll_stats(desc->get_product(out)->get_factor(), aggregate_weight);
+		output[out].roll_stats(desc->get_product(out)->get_factor());
 	}
 	reset_consumer_active();
-
-	// calculate weighted averages
-	if(  aggregate_weight>0  ) {
-		set_stat(calc_operation_rate(1), FAB_PRODUCTION );
-		set_stat( weighted_sum_boost_electric / aggregate_weight, FAB_BOOST_ELECTRIC );
-		set_stat( weighted_sum_boost_pax / aggregate_weight, FAB_BOOST_PAX );
-		set_stat( weighted_sum_boost_mail / aggregate_weight, FAB_BOOST_MAIL );
-		if (!desc->is_electricity_producer()) {
-			set_stat(weighted_sum_power*1000 / aggregate_weight, FAB_POWER);
-		}
-		else {
-			set_stat(weighted_sum_power / aggregate_weight, FAB_POWER);
-		}
-	}
 
 	// update statistics
 	for(  int s=0;  s<MAX_FAB_STAT;  ++s  ) {
@@ -2772,12 +2740,6 @@ void fabrik_t::new_month()
 		}
 		statistics[0][s] = 0;
 	}
-	weighted_sum_production = 0;
-	weighted_sum_boost_electric = 0;
-	weighted_sum_boost_pax = 0;
-	weighted_sum_boost_mail = 0;
-	weighted_sum_power = 0;
-	aggregate_weight = 0;
 
 	// restore the current values
 	set_stat(calc_operation_rate(0), FAB_PRODUCTION);
@@ -3798,8 +3760,6 @@ void fabrik_t::calc_max_intransit_percentages()
 	uint32 index = 0;
 	FOR(array_tpl<ware_production_t>, &w, input)
 	{
-		const uint8 catg = w.get_typ()->get_catg();
-
 		const uint32 lead_time = get_lead_time(w.get_typ());
 		if(lead_time == UINT32_MAX_VALUE)
 		{
@@ -3820,7 +3780,6 @@ uint32 fabrik_t::get_total_input_capacity() const
 {
 	uint32 i = 0;
 	uint32 capacity_sum = 0;
-	uint32 stock_sum = 0;
 	FORX(array_tpl<ware_production_t>, const& goods, input, i++) {
 		const sint64 pfactor =desc->get_supplier(i) ? (sint64)desc->get_supplier(i)->get_consumption() : 1ll;
 		const uint32 storage_capacity = (uint32)((FAB_DISPLAY_UNIT_HALF + (sint64)goods.max * pfactor) >> (fabrik_t::precision_bits + DEFAULT_PRODUCTION_FACTOR_BITS));
