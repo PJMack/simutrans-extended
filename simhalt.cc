@@ -1355,15 +1355,21 @@ void haltestelle_t::step()
 								passengers_walked = true;
 							}
 
-							const uint32 distance_to_transfer = shortest_distance(get_next_pos(tmp.get_zwischenziel()->get_basis_pos()), get_next_pos(tmp.get_zwischenziel()->get_basis_pos()));
-							if(tmp.get_zwischenziel().is_bound() && distance_to_transfer <= max_walking_distance)
+							uint32 distance_to_transfer = 0;
+
+							if (tmp.get_zwischenziel().is_bound())
 							{
-								// Passengers can walk to their next transfer.
-								const uint32 walking_time = welt->walking_time_tenths_from_distance(distance_to_transfer);
-								pedestrian_t::generate_pedestrians_at(get_basis_pos3d(), tmp.menge, world()->get_seconds_to_ticks(walking_time * 6));
-								tmp.set_last_transfer(self);
-								tmp.get_zwischenziel()->liefere_an(tmp, 1);
-								passengers_walked = true;
+								distance_to_transfer = shortest_distance(get_next_pos(tmp.get_zwischenziel()->get_basis_pos()), get_next_pos(tmp.get_zwischenziel()->get_basis_pos()));
+
+								if (distance_to_transfer <= max_walking_distance)
+								{
+									// Passengers can walk to their next transfer.
+									const uint32 walking_time = welt->walking_time_tenths_from_distance(distance_to_transfer);
+									pedestrian_t::generate_pedestrians_at(get_basis_pos3d(), tmp.menge, world()->get_seconds_to_ticks(walking_time * 6));
+									tmp.set_last_transfer(self);
+									tmp.get_zwischenziel()->liefere_an(tmp, 1);
+									passengers_walked = true;
+								}
 							}
 
 							// Passengers - use unhappy graph. Even passengers able to walk to their destination or
@@ -4965,7 +4971,7 @@ void haltestelle_t::recalc_status()
 		for(  uint32 i = 3;  i < count;  i++  ) {
 			goods_desc_t const* const wtyp = goods_manager_t::get_info(i);
 			const uint32 ware_sum = get_ware_summe(wtyp);
-			if (gibt_ab(wtyp) && status_color_freight != color_idx_to_rgb(COL_OVERCROWD)) {
+			if (gibt_ab(wtyp) && status_color_freight != SYSCOL_OVERCROWDED) {
 				status_color_freight = COL_CLEAR;
 			}
 			if (ware_sum) {
@@ -4977,7 +4983,7 @@ void haltestelle_t::recalc_status()
 			{
 				status_bits |= (ware_sum + transferring_total) > max_ware + 32 || enables & CROWDED ? 2 : 1;
 				overcrowded[wtyp->get_index()/8] |= 1<<(wtyp->get_index()%8);
-				status_color_freight = color_idx_to_rgb(COL_OVERCROWD);
+				status_color_freight = SYSCOL_OVERCROWDED;
 			}
 		}
 		if (!has_active_freight_connection && status_color_freight != COL_CLEAR) {
@@ -4986,7 +4992,7 @@ void haltestelle_t::recalc_status()
 		else if (!total_freight && !transferring_total && financial_history[0][HALT_GOODS_HANDLING_VOLUME]==0) {
 			status_color_freight = COL_CAUTION;
 		}
-		else if(status_color_freight != color_idx_to_rgb(COL_OVERCROWD)) {
+		else if(status_color_freight != SYSCOL_OVERCROWDED) {
 			status_color_freight = COL_CLEAR;
 		}
 		total_sum+=total_freight;
@@ -5044,7 +5050,7 @@ PIXVAL haltestelle_t::get_status_color(uint8 typ) const
 	if (get_overcrowded_proporion(typ) < 10) {
 		return COL_CLEAR;
 	}
-	return color_idx_to_rgb(COL_OVERCROWD);
+	return SYSCOL_OVERCROWDED;
 }
 
 

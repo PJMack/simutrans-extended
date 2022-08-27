@@ -2238,6 +2238,10 @@ public:
 	const vector_tpl<fabrik_t*>& get_fab_list() const { return fab_list; }
 	vector_tpl<fabrik_t*>& access_fab_list() { return fab_list; }
 
+	void fab_init_contracts();
+	void fab_remove_contracts();
+
+
 	/**
 	 * Returns a list of goods produced by factories that exist in current game.
 	 */

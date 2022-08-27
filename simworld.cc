@@ -4669,6 +4669,18 @@ bool karte_t::rem_fab(fabrik_t *fab)
 	return true;
 }
 
+void karte_t::fab_init_contracts(){
+	for(fabrik_t* fab : fab_list){
+		fab->init_contracts();
+	}
+}
+
+void karte_t::fab_remove_contracts(){
+	for(fabrik_t* fab : fab_list){
+		fab->remove_contracts();
+	}
+}
+
 /*----------------------------------------------------------------------------------------------------------------------*/
 /* same procedure for tourist attractions */
 
@@ -5483,7 +5495,7 @@ void karte_t::recalc_average_speed(bool skip_messages)
 					{
 						cbuffer_t buf;
 						buf.printf(translator::translate("The following %s has become obsolete:\n%s\n"), vehicle_type, translator::translate(info->get_name()));
-						msg->add_message(buf, koord::invalid, message_t::new_vehicle, COL_OBSOLETE, info->get_base_image());
+						msg->add_message(buf, koord::invalid, message_t::new_vehicle, SYSCOL_OBSOLETE, info->get_base_image());
 					}
 				}
 			}
