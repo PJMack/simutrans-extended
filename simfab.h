@@ -176,6 +176,10 @@ public:
 		return using_contracts;
 	}
 
+	void verify_contracts(){
+		assert(!using_contracts || link_aux.get_count()==links.get_count());
+	}
+
 	sint32 get_contract(uint32 idx){ return using_contracts ? link_aux[idx] : 0;}
 	void set_contract(uint32 idx, sint32 contract){
 		assert(using_contracts);
@@ -221,7 +225,7 @@ public:
 			}
 		}
 		links.insert_at(high,pos);
-		if(using_contracts && aux!=0xFFFFFFFF){
+		if(using_contracts){
 			link_aux.insert_at(high,aux);
 		}
 	}
@@ -528,6 +532,7 @@ private:
 	/// Possible destinations for produced goods
 	/// Deprecated, only used for read/write
 	vector_tpl <koord> consumers;
+	vector_tpl <sint32> contracts;
 	vector_tpl<uint32> consumers_active_this_month;
 
 	/**

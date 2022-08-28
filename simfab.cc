@@ -130,7 +130,7 @@ void ware_production_t::roll_stats(uint32 factor)
 }
 
 
-void ware_production_t::rdwr(loadsave_t *file, uint8 sub_version)
+void ware_production_t::rdwr(loadsave_t *file, uint8)
 {
 	if(  file->is_loading()  ) {
 		init_stats();
@@ -181,25 +181,6 @@ void ware_production_t::rdwr(loadsave_t *file, uint8 sub_version)
 	if(  file->is_loading()  ) {
 		// recalc transit always on load
 		set_stat(0, FAB_GOODS_TRANSIT);
-	}
-
-	if(sub_version & 2){
-		file->rdwr_long(total_contracts);
-		uint32 contract_list_count=0xFFFFFFFF;
-		if(file->is_saving() && using_contracts){
-			contract_list_count=link_aux.get_count();
-		}
-		file->rdwr_long(contract_list_count);
-		if(contract_list_count!=0xFFFFFFFF){
-			if(file->is_loading()){
-				link_aux.resize(contract_list_count);
-				link_aux.set_count(contract_list_count);
-			}
-			for(uint32 i = 0; i < contract_list_count; i++){
-				file->rdwr_long(link_aux[i]);
-			}
-			using_contracts=true;
-		}
 	}
 }
 
@@ -677,10 +658,8 @@ void fabrik_t::add_consumer(koord ziel, const goods_desc_t *desc, const sint64 c
 			if(fabrik_t *fab = get_fab( ziel )){
 				if(auto dest_ware = fab->get_input(ware.get_typ())){
 					ware.link_add(ziel, RelativeDistanceOrdering(pos.get_2d()),contract);
-					if(contract!=0xFFFFFFFF){
-						ware.add_total_contracts(contract);
-						dest_ware->add_total_contracts(contract);
-					}
+					ware.add_total_contracts(contract);
+					dest_ware->add_total_contracts(contract);
 					fab->add_supplier(get_pos().get_2d(),desc);
 				}
 			}
@@ -688,10 +667,8 @@ void fabrik_t::add_consumer(koord ziel, const goods_desc_t *desc, const sint64 c
 			if(fabrik_t *fab = get_fab( ziel )){
 				if(auto dest_ware = fab->get_input(ware.get_typ())){
 					ware.link_add(ziel, RelativeDistanceOrdering(pos.get_2d()),contract);
-					if(contract!=0xFFFFFFFF){
-						ware.add_total_contracts(contract);
-						dest_ware->add_total_contracts(contract);
-					}
+					ware.add_total_contracts(contract);
+					dest_ware->add_total_contracts(contract);
 					fab->add_supplier(get_pos().get_2d(),ware.get_typ());
 				}
 			}
@@ -1334,7 +1311,7 @@ vector_tpl<fabrik_t *> &fabrik_t::sind_da_welche(koord min_pos, koord max_pos)
  */
 char const* fabrik_t::get_name() const
 {
-	return name ? name.c_str() : translator::translate(desc->get_name(), welt->get_settings().get_name_language_id());
+    return name ? name.c_str() : translator::translate(desc->get_name(), welt->get_settings().get_name_language_id());
 }
 
 
@@ -1365,18 +1342,27 @@ void fabrik_t::rdwr(loadsave_t *file)
 	uint8 sub_version=1; //4 bit local version number
 
 	if(  file->is_saving()  ) {
-		input_count = input.get_count();
-		output_count = output.get_count();
-		consumers.clear();
-		for(auto pos : get_consumers()){
-			consumers.append(pos);
-		}
-		consumers_count = consumers.get_count();
-		const char *s = desc->get_name();
-		file->rdwr_str(s);
 		if(welt->get_settings().using_fab_contracts()){
 			sub_version|=2;
 		}
+
+		input_count = input.get_count();
+		output_count = output.get_count();
+		consumers.clear();
+		contracts.clear();
+		for(auto &ware : output){
+			for(uint32 i = 0; i < ware.link_count(); i++){
+				consumers.append(ware.link_from_index(i));
+				if(sub_version & 2){
+					contracts.append(ware.get_contract(i));
+				}
+			}
+		}
+
+		consumers_count = consumers.get_count();
+		const char *s = desc->get_name();
+		file->rdwr_str(s);
+
 	}
 	else {
 		char s[256];
@@ -1664,8 +1650,14 @@ DBG_DEBUG("fabrik_t::rdwr()","loading factory '%s'",s);
 	for(int i=0; i < consumers_count; i++) {
 		if(file->is_loading()) {
 			consumers.append(koord::invalid);
+			if(sub_version & 2){
+				contracts.append(0);
+			}
 		}
 		consumers[i].rdwr(file);
+		if(sub_version & 2){
+			file->rdwr_long(contracts[i]);
+		}
 	}
 
 	if(sub_version>=1){
@@ -3989,6 +3981,12 @@ void fabrik_t::finish_rd()
 {
 	recalc_nearby_halts();
 
+	if(welt->get_settings().using_fab_contracts()){
+		for(auto &ware : output){
+			ware.set_using_contracts();
+		}
+	}
+
 	// now we have a valid storage limit
 	if(  welt->get_settings().is_crossconnect_factories()  ) {
 		FOR(  vector_tpl<fabrik_t*>,  const fab,  welt->get_fab_list()  ) {
@@ -3998,11 +3996,17 @@ void fabrik_t::finish_rd()
 	else {
 		// add as supplier to target(s)
 		for(uint32 i=0; i < consumers.get_count(); i++) {
-			add_consumer(consumers[i],0,0xFFFFFFFF);
+			sint32 contract=0;
+			if(welt->get_settings().using_fab_contracts() && i < contracts.get_count()){
+				contract=contracts[i];
+			}
+			add_consumer(consumers[i],0,contract);
 		}
 	}
 	consumers.clear();
 	consumers.resize(0);
+	contracts.clear();
+	contracts.resize(0);
 	if(consumers_active_this_month.empty()){
 		reset_consumer_active();
 	}
@@ -4018,6 +4022,12 @@ void fabrik_t::finish_rd()
 
 	mark_connected_roads(false);
 	add_to_world_list();
+
+
+	//check that things loaded correctly
+	for(auto &ware : output){
+		ware.verify_contracts();
+	}
 
 	//check that the settings did not change prior to load
 	if(welt->get_settings().using_fab_contracts() && output.get_count() && !output[0].get_using_contracts()){
