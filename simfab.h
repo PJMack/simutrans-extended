@@ -247,6 +247,23 @@ public:
 		return false;
 	}
 
+	bool link_remove(uint32 idx){
+		links.remove_at(idx);
+		if(using_contracts){
+			link_aux.remove_at(idx);
+		}
+		return true;
+	}
+
+	uint32 link_index(koord pos){
+		for(uint32 i = 0; i < links.get_count(); i++){
+			if(links[i]==pos){
+				return i;
+			}
+		}
+		return UINT32_MAX_VALUE;
+	}
+
 	uint32 link_count() const{
 		return links.get_count();
 	}
@@ -858,13 +875,13 @@ public:
 	void remove_consumer(koord consumer_pos);
 
 	bool disconnect_consumer(koord consumer_pos);
-	bool disconnect_supplier(koord supplier_pos);
+	bool disconnect_supplier(koord supplier_pos, fabrik_t *supplier=0);
 
 	/**
 	 * adds a supplier
 	 */
 	void  add_supplier(koord pos, const goods_desc_t* desc=0);
-	void  remove_supplier(koord supplier_pos);
+	void  remove_supplier(koord supplier_pos, fabrik_t *supplier=0);
 
 	/**
 	 * @return counts amount of ware of typ

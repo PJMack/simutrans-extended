@@ -680,7 +680,14 @@ void fabrik_t::add_consumer(koord ziel, const goods_desc_t *desc, const sint64 c
 void fabrik_t::remove_consumer(koord consumer_pos)
 {
 	for(auto &ware : get_output()){
-		ware.link_remove(consumer_pos);
+		uint32 idx=ware.link_index(consumer_pos);
+		if(idx!=UINT32_MAX_VALUE){
+			if(welt->get_settings().using_fab_contracts()){
+				sint32 contract=ware.get_contract(idx);
+				ware.sub_total_contracts(contract);
+			}
+			ware.link_remove(consumer_pos);
+		}
 	}
 }
 
@@ -733,11 +740,11 @@ bool fabrik_t::disconnect_consumer(koord consumer_pos) //Returns true if must be
 	return false;
 }
 
-bool fabrik_t::disconnect_supplier(koord supplier_pos) //Returns true if must be destroyed.
+bool fabrik_t::disconnect_supplier(koord supplier_pos, fabrik_t* supplier) //Returns true if must be destroyed.
 {
 	if (supplier_pos != koord::invalid)
 	{
-		remove_supplier(supplier_pos);
+		remove_supplier(supplier_pos, supplier);
 	}
 
 	//try to connect with a supplier capable of supplying the goods
@@ -1071,7 +1078,7 @@ fabrik_t::~fabrik_t()
 			for(sint32 i = ware.link_count() - 1; i >= 0; i --)
 			{
 				fabrik_t* tmp = get_fab(ware.link_from_index(i));
-				if(tmp && tmp->disconnect_supplier(pos.get_2d()))
+				if(tmp && tmp->disconnect_supplier(pos.get_2d(),this))
 				{
 					// Orphaned, must be deleted.
 					gebaeude_t* gb = tmp->get_building();
@@ -3305,6 +3312,10 @@ void fabrik_t::new_month()
 						}
 						if(!keep_ware){
 							for(uint32 i = ware.link_count()-1; i < ware.link_count(); i--){
+								fabrik_t* affected_fab = get_fab(ware.link_from_index(i));
+								if(affected_fab){
+									affected_fab->disconnect_consumer(get_pos().get_2d());
+								}
 								must_close = disconnect_supplier(ware.link_from_index(i));
 								disconnect_supplier_checked=true;
 							}
@@ -3363,6 +3374,9 @@ void fabrik_t::new_month()
 							}
 							if(!keep_ware){
 								for(uint32 i = ware.link_count()-1; i < ware.link_count(); i--){
+									if(fabrik_t* affected_fab = get_fab(ware.link_from_index(i))){
+										affected_fab->disconnect_supplier(get_pos().get_2d(),this);
+									}
 									must_close = disconnect_consumer(ware.link_from_index(i));
 									disconnect_supplier_checked=true;
 								}
@@ -4118,10 +4132,28 @@ void fabrik_t::add_supplier(koord ziel, const goods_desc_t *desc)
 }
 
 
-void fabrik_t::remove_supplier(koord supplier_pos)
+void fabrik_t::remove_supplier(koord supplier_pos, fabrik_t* supplier)
 {
 	for(auto& ware : get_input()){
-		ware.link_remove(supplier_pos);
+		uint32 idx=ware.link_index(supplier_pos);
+		if(idx!=UINT32_MAX_VALUE){
+			if(welt->get_settings().using_fab_contracts()){
+				fabrik_t* affected_fab = supplier;
+				if(!affected_fab){
+					affected_fab = get_fab(supplier_pos);
+				}
+				if(affected_fab){
+					if(auto affected_ware = affected_fab->get_output(ware.get_typ())){
+						uint32 affected_idx=affected_ware->link_index(this->get_pos().get_2d());
+						if(affected_idx!=UINT32_MAX_VALUE){
+							sint32 contract=affected_ware->get_contract(affected_idx);
+							ware.sub_total_contracts(contract);
+						}
+					}
+				}
+			}
+			ware.link_remove(idx);
+		}
 	}
 
 	if(  welt->get_settings().get_factory_maximum_intransit_percentage()  ) {
