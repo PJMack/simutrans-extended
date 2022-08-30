@@ -488,10 +488,23 @@ void gui_factory_connection_stat_t::draw(scr_coord offset)
 				xoff += display_proportional_clip_rgb(offset.x + xoff, offset.y + yoff, buf, ALIGN_LEFT, col_val, true);
 			}
 
-			if(!is_input_display){
-				if(welt->get_settings().using_fab_contracts()){
+			if(welt->get_settings().using_fab_contracts()){
+				sint32 contract=-1;
+				if(!is_input_display){
 					uint32 idx=it.get_ware_index();
-					sint32 contract=(it.get_ware().get_contract(idx) * 10) >> fabrik_t::precision_bits;
+					contract=(it.get_ware().get_contract(idx) * 10) >> fabrik_t::precision_bits;
+				}else{
+					uint32 idx=it.get_ware_index();
+					if(fabrik_t* affected_fab = fabrik_t::get_fab(it.get_ware().link_from_index(idx))){
+						if(auto affected_ware = affected_fab->get_output(it.get_ware().get_typ())){
+							idx=affected_ware->link_index(fab->get_pos().get_2d());
+							if(idx!=UINT32_MAX_VALUE){
+								contract = (affected_ware->get_contract(idx) * 10) >> fabrik_t::precision_bits;
+							}
+						}
+					}
+				}
+				if(contract>=0){
 					if(contract < 100){
 						buf.printf(translator::translate(" %.1f Units per Mo."),(float)contract / 10.0);
 					}else{
