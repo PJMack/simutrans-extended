@@ -342,10 +342,10 @@ void fabrik_t::book_weighted_sums()
 {
 	// storage level of input/output stores
 	for (uint32 in = 0; in < input.get_count(); in++) {
-		input[in].book_weighted_sum_storage(welt->get_settings().using_fab_contracts() ? (1 << fabrik_t::precision_bits) : desc->get_supplier(in)->get_consumption());
+		input[in].book_weighted_sum_storage(welt->get_settings().using_fab_contracts() ? (DEFAULT_PRODUCTION_FACTOR) : desc->get_supplier(in)->get_consumption());
 	}
 	for (uint32 out = 0; out < output.get_count(); out++) {
-		output[out].book_weighted_sum_storage(welt->get_settings().using_fab_contracts() ? (1 << fabrik_t::precision_bits) : desc->get_product(out)->get_factor());
+		output[out].book_weighted_sum_storage(welt->get_settings().using_fab_contracts() ? (DEFAULT_PRODUCTION_FACTOR) : desc->get_product(out)->get_factor());
 	}
 
 	// production rate
@@ -2594,7 +2594,7 @@ void fabrik_t::step_contracts(uint32 delta_t){
 				}
 				delta_amount+=step_production;
 				uint32 this_production=step_production * pfactor;
-				output[i].book_stat(this_production, FAB_GOODS_PRODUCED);
+				output[i].book_stat(this_production << DEFAULT_PRODUCTION_FACTOR_BITS, FAB_GOODS_PRODUCED);
 				output[i].menge+=this_production;
 				// if less than 3/4 filled we neary always consume power
 				currently_producing |= (output[i].menge * 4 < output[i].max * 3);
@@ -2604,7 +2604,7 @@ void fabrik_t::step_contracts(uint32 delta_t){
 					const uint32 pfactor=desc->get_supplier(i)->get_consumption();
 					uint32 this_consumption=step_consumption * pfactor;
 					input[i].menge-=this_consumption;
-					input[i].book_stat(this_consumption,FAB_GOODS_CONSUMED);
+					input[i].book_stat(this_consumption << DEFAULT_PRODUCTION_FACTOR_BITS,FAB_GOODS_CONSUMED);
 				}
 			}
 		}
@@ -2724,7 +2724,7 @@ void fabrik_t::distribute_contracts(uint32 delta_t){
 					//send to station
 
 					//find station with most free space that has path to destination
-					sint32 max_freespace_ratio=0;
+					sint32 max_freespace_ratio=-1;
 					ware_t best_ware;
 					halthandle_t best_halt;
 					for(auto nearby_halt : nearby_freight_halts){
@@ -2745,7 +2745,7 @@ void fabrik_t::distribute_contracts(uint32 delta_t){
 					}
 
 					//if halt found with free space, send the goods
-					if(max_freespace_ratio>0){
+					if(max_freespace_ratio>=0){
 						best_halt->starte_mit_route(best_ware, get_pos().get_2d());
 						best_halt->recalc_status();
 						fabrik_t::update_transit( best_ware, true );
@@ -3079,10 +3079,10 @@ void fabrik_t::new_month()
 {
 	// update statistics for input and output goods
 	for (uint32 in = 0; in < input.get_count(); in++) {
-		input[in].roll_stats(desc->get_supplier(in)->get_consumption());
+		input[in].roll_stats(welt->get_settings().using_fab_contracts() ? DEFAULT_PRODUCTION_FACTOR : desc->get_supplier(in)->get_consumption());
 	}
 	for (uint32 out = 0; out < output.get_count(); out++) {
-		output[out].roll_stats(desc->get_product(out)->get_factor());
+		output[out].roll_stats(welt->get_settings().using_fab_contracts() ? DEFAULT_PRODUCTION_FACTOR : desc->get_product(out)->get_factor());
 	}
 	reset_consumer_active();
 
