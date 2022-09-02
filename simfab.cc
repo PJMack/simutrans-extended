@@ -1018,8 +1018,9 @@ void fabrik_t::mark_connected_roads(bool del)
 	}
 }
 
-void fabrik_t::delete_all_fields()
+void fabrik_t::delete_all_fields(bool destructor)
 {
+	bool adjust=false;
 	while(!fields.empty())
 	{
 		planquadrat_t *plan = welt->access( fields.back().location );
@@ -1027,13 +1028,18 @@ void fabrik_t::delete_all_fields()
 		if (plan) {
 			grund_t *gr = plan->get_kartenboden();
 			if (field_t* f = gr->find<field_t>()) {
+				f->pre_delete();
 				delete f; // implicitly removes the field from fields
 				plan->boden_ersetzen( gr, new boden_t(gr->get_pos(), slope_t::flat ) );
 				plan->get_kartenboden()->calc_image();
+				adjust=true;
 				continue;
 			}
 		}
 		fields.pop_back();
+	}
+	if(!destructor && adjust){
+		adjust_production_for_fields();
 	}
 	// destroy chart window, if present
 	destroy_win((ptrdiff_t)this);
@@ -1045,7 +1051,7 @@ fabrik_t::~fabrik_t()
 	{
 		mark_connected_roads(true);
 	}
-	delete_all_fields();
+	delete_all_fields(true);
 
 	if(!welt->is_destroying())
 	{
@@ -1195,6 +1201,7 @@ void fabrik_t::build(sint32 rotate, bool build_fields, bool, bool from_saved)
 					break;
 				}*/
 			}
+			adjust_production_for_fields();
 		}
 	}
 	else
@@ -1272,7 +1279,6 @@ bool fabrik_t::add_random_field(uint16 probability)
 		welt->access(k)->boden_ersetzen(gr, gr2);
 		gr2->obj_add( new field_t(gr2->get_pos(), owner, field_class, this ) );
 		// adjust production base and storage capacities
-		adjust_production_for_fields();
 		if(lt) {
 			gr2->obj_add( lt );
 		}
@@ -2650,6 +2656,7 @@ void fabrik_t::rescale_delta(){
 				if(  fields.get_count()<desc->get_field_group()->get_max_fields()  ) {
 					// spawn new field with given probability
 					add_random_field(desc->get_field_group()->get_probability());
+					adjust_production_for_fields();
 				}
 			}
 			else {
@@ -3237,6 +3244,7 @@ void fabrik_t::new_month()
 					{
 						add_random_field(10000u);
 					}
+					adjust_production_for_fields();
 					// Re-set the expansion counter: an upgraded factory may expand further.
 					times_expanded = 0;
 					// Re-calculate production/consumption

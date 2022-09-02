@@ -757,7 +757,7 @@ private:
 
 protected:
 
-	void delete_all_fields();
+	void delete_all_fields(bool destructor=false);
 
 public:
 	fabrik_t(loadsave_t *file);
