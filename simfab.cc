@@ -2590,6 +2590,9 @@ void fabrik_t::step_contracts(uint32 delta_t){
 			uint32 step_consumption=0;
 			//produce good(s)
 			for(uint32 i = 0; i < output.get_count(); i++){
+				if(output[i].menge >= output[i].max){
+					continue;
+				}
 				const uint32 pfactor=desc->get_product(i)->get_factor();
 				uint32 step_production=(output[i].max - output[i].menge) / pfactor;
 				if(step_production > step_production_max){
