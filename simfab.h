@@ -358,13 +358,15 @@ public:
 		return iterator();
 	}
 
-	const koord operator[](uint32 i) const{
+	const koord operator[](uint32 i) const {
 		for(auto ware : *ware_list){
 			if(i < ware.link_count()){
 				return ware.link_from_index(i);
 			}
 			i-= ware.link_count();
 		}
+
+		return koord::invalid;
 	}
 
 	uint32 index_of(koord k) const {
@@ -475,6 +477,8 @@ public:
 			}
 			i-= ware.link_count();
 		}
+
+		return koord::invalid;
 	}
 
 	uint32 index_of(koord k) const {
@@ -551,6 +555,11 @@ private:
 	vector_tpl <koord> consumers;
 	vector_tpl <sint32> contracts;
 	vector_tpl<uint32> consumers_active_this_month;
+
+	///number of months without any production
+	uint32 months_unproductive;
+	///number of months where ware total contract(s) are zero
+	uint32 months_missing_contracts;
 
 	/**
 	 * fields of this factory (only for farms etc.)

@@ -5182,6 +5182,7 @@ void karte_t::new_month()
 	uint32 total_electric_demand = 1;
 	uint32 electric_productivity = 0;
 	closed_factories_this_month.clear();
+	should_close_factories_this_month.clear();
 	uint32 closed_factories_count = 0;
 	FOR(vector_tpl<fabrik_t*>, const fab, fab_list)
 	{
@@ -5216,6 +5217,16 @@ void karte_t::new_month()
 		}
 	}
 
+	if(should_close_factories_this_month.get_count()){
+		for(uint32 i = 0; i < 16 && i < should_close_factories_this_month.get_count(); i++){
+			fabrik_t* fab = pick_any_weighted(should_close_factories_this_month);
+			if(fab_list.is_contained(fab)){
+				gebaeude_t* gb = fab->get_building();
+				hausbauer_t::remove(get_public_player(), gb, false);
+			}
+		}
+	}
+
 	// Check to see whether more factories need to be added
 	// to replace ones that have closed.
 	// @author: jamespetts
@@ -5235,7 +5246,7 @@ void karte_t::new_month()
 	}
 	const uint32 target_industry_density = get_target_industry_density();
 	uint32 count = 0;
-	while(actual_industry_density < target_industry_density && count < 4)
+	while(actual_industry_density < target_industry_density && count < 8)
 	{
 		// Only add up to four chains per month, and randomise (with a minimum of 8% distribution_weight to ensure that any industry deficiency is, on average, remedied in about a year).
 		const uint32 percentage = max((((target_industry_density - actual_industry_density) * 100u) / target_industry_density), 8u);
@@ -8866,7 +8877,7 @@ void karte_t::rdwr_gamestate(loadsave_t *file, loadingscreen_t *ls)
 			bool read_pak_simuconf = env_t::default_settings.get_pak_overrides_savegame_settings();
 			bool read_userdir_simuconf = env_t::default_settings.get_userdir_overrides_savegame_settings();
 			tabfile_t simuconf;
-			string dummy;
+			std::string dummy;
 
 			if (read_progdir_simuconf) {
 				dr_chdir( env_t::data_dir );

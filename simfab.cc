@@ -826,6 +826,8 @@ fabrik_t::fabrik_t(loadsave_t* file) :
 	currently_producing = false;
 	transformer_connected = NULL;
 	last_sound_ms = welt->get_ticks();
+	months_unproductive=0;
+	months_missing_contracts=0;
 
 	if(  desc == NULL  ) {
 		dbg->warning( "fabrik_t::fabrik_t()", "No pak-file for factory at (%s) - will not be built!", pos_origin.get_str() );
@@ -884,6 +886,8 @@ fabrik_t::fabrik_t(koord3d pos_, player_t* owner, const factory_desc_t* desc, si
 	sector = unknown;
 	status = nothing;
 	city = check_local_city();
+	months_unproductive=0;
+	months_missing_contracts=0;
 
 	if(desc->get_placement() == 2 && city && desc->get_product_count() == 0 && !desc->is_electricity_producer())
 	{
@@ -1353,10 +1357,10 @@ void fabrik_t::rdwr(loadsave_t *file)
 	sint32 output_count;
 	sint32 consumers_count;
 	uint8 sub_version=1; //4 bit local version number
-
+	uint8 contract_version=1;
 	if(  file->is_saving()  ) {
 		if(welt->get_settings().using_fab_contracts()){
-			sub_version|=2;
+			sub_version|=6;
 		}
 
 		input_count = input.get_count();
@@ -1789,7 +1793,7 @@ DBG_DEBUG("fabrik_t::rdwr()","loading factory '%s'",s);
 				}
 			}
 		}
-		sint64 dummy;
+		sint64 dummy = 0;
 		file->rdwr_longlong( dummy );
 		file->rdwr_longlong( dummy );
 		file->rdwr_longlong( dummy );
@@ -1837,6 +1841,14 @@ DBG_DEBUG("fabrik_t::rdwr()","loading factory '%s'",s);
 		else // Saving
 		{
 			building->rdwr(file);
+		}
+	}
+
+	if(sub_version & 4){
+		file->rdwr_byte(contract_version);
+		if(contract_version>=1){
+			file->rdwr_long(months_unproductive);
+			file->rdwr_long(months_missing_contracts);
 		}
 	}
 
@@ -3111,6 +3123,44 @@ void fabrik_t::new_month()
 	set_stat( prodfactor_mail, FAB_BOOST_MAIL );
 	set_stat( power, FAB_POWER );
 
+	if(welt->get_settings().using_fab_contracts()){
+		//check if industry has been idle too long
+		if(get_stat(1,FAB_PRODUCTION)==0){
+			months_unproductive++;
+		}else{
+			months_unproductive=0;
+		}
+		if(output.get_count()){
+			uint32 missing_contracts=0;
+			bool reset_missing_contracts=false;
+			for(uint32 i = 0; i < output.get_count(); i++){
+				if(output[i].get_total_contracts()==0){
+					missing_contracts++;
+				}
+			}
+			if(missing_contracts!=output.get_count()){
+				reset_missing_contracts=true;
+			}
+			for(uint32 i = 0; i < input.get_count(); i++){
+				if(input[i].get_total_contracts()==0){
+					reset_missing_contracts=false;
+					missing_contracts++;
+				}
+			}
+			if(reset_missing_contracts){
+				months_missing_contracts=0;
+			}else{
+				months_missing_contracts+=missing_contracts;
+			}
+		}else{
+			months_missing_contracts=0;
+		}
+
+		if(months_unproductive>12*5 || months_missing_contracts>12){
+			welt->should_close_factories_this_month.append(this,months_unproductive+months_missing_contracts);
+		}
+	}
+
 	// This needs to be re-checked regularly, as cities grow, occasionally shrink and can be deleted.
 	stadt_t* c = check_local_city();
 
@@ -3586,7 +3636,6 @@ void fabrik_t::negotiate_contracts(){
 			}
 		}
 	}
-
 }
 
 // static !
