@@ -814,6 +814,8 @@ fabrik_t::fabrik_t(loadsave_t* file) :
 	city = NULL;
 	building = NULL;
 	pos = koord3d::invalid;
+	months_unproductive=0;
+	months_missing_contracts=0;
 
 	rdwr(file);
 
@@ -826,8 +828,6 @@ fabrik_t::fabrik_t(loadsave_t* file) :
 	currently_producing = false;
 	transformer_connected = NULL;
 	last_sound_ms = welt->get_ticks();
-	months_unproductive=0;
-	months_missing_contracts=0;
 
 	if(  desc == NULL  ) {
 		dbg->warning( "fabrik_t::fabrik_t()", "No pak-file for factory at (%s) - will not be built!", pos_origin.get_str() );
@@ -3934,6 +3934,20 @@ void fabrik_t::info_prod(cbuffer_t& buf) const
 #endif
 		buf.printf("%s: %d\n", translator::translate("Mail demand/output"), building->get_adjusted_mail_demand());
 
+	}
+
+	if(welt->get_settings().using_fab_contracts()){
+		if(months_unproductive || months_missing_contracts){
+			buf.append("\n");
+		}
+		if(months_unproductive){
+			buf.printf(translator::translate("Unproductive: %d Mo."),months_unproductive);
+		}
+		buf.append("\n");
+		if(months_missing_contracts){
+			buf.printf(translator::translate("Contractless: %d Mo."),months_missing_contracts);
+		}
+		buf.append("\n\n");
 	}
 }
 
