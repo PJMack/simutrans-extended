@@ -2539,8 +2539,6 @@ void fabrik_t::step_contracts(uint32 delta_t){
 		uint32 step_production_max=(monthly_production * (uint64)delta_t + delta_amount_remainder) / (welt->ticks_per_world_month * kilo_per_quarter); //quarters this step;
 		delta_amount_remainder=(monthly_production * (uint64)delta_t + delta_amount_remainder) % (welt->ticks_per_world_month * kilo_per_quarter);
 
-		// needed for electricity
-		currently_producing = false;
 		power_demand = 0;
 
 		//consume and/or produce stock based on industry type
@@ -2551,6 +2549,7 @@ void fabrik_t::step_contracts(uint32 delta_t){
 				if (desc->is_electricity_producer()) {
 					// power station => start with no production
 					power = 0;
+					currently_producing = false;
 				}
 
 				//consume each good type
@@ -2563,24 +2562,27 @@ void fabrik_t::step_contracts(uint32 delta_t){
 						currently_producing=true;
 					}else{
 						step_production=input[i].menge / pfactor;
+						if(step_production){
+							currently_producing=true;
+						}
 					}
 					this_consumption=step_production * pfactor;
-
-					//produce power
-					if (desc->is_electricity_producer())
-					{
-						// power station => produce power
-						power += (uint32)(((sint64)scaled_electric_demand * (sint64)(DEFAULT_PRODUCTION_FACTOR + prodfactor_pax + prodfactor_mail))) * step_production;
-					}
 
 					input[i].menge-=this_consumption;
 					input[i].book_stat(this_consumption << DEFAULT_PRODUCTION_FACTOR_BITS,FAB_GOODS_CONSUMED);
 					delta_amount+=step_production;
 				}
 			}
+
+			//produce power
+			if (currently_producing && desc->is_electricity_producer())
+			{
+				power = (uint32)( ((sint64)scaled_electric_demand * (sint64)(DEFAULT_PRODUCTION_FACTOR + prodfactor_pax + prodfactor_mail)) >> DEFAULT_PRODUCTION_FACTOR_BITS );
+			}
 		}else if(output.empty()){
 			//consumer only, consumption in received goods code
 			//check if operative though
+			currently_producing = false;
 			for(uint32 i = 0; i < input.get_count(); i++){
 				if((uint32)input[i].menge >= step_production_max * desc->get_supplier(i)->get_consumption()){
 					currently_producing=true;
@@ -2589,6 +2591,7 @@ void fabrik_t::step_contracts(uint32 delta_t){
 			}
 		}else{
 			//producer or manufacturer
+			currently_producing = false;
 
 			//reduce max_production_step to corespond with input
 			for(uint32 i = 0; i < input.get_count(); i++){
@@ -2629,7 +2632,7 @@ void fabrik_t::step_contracts(uint32 delta_t){
 				}
 			}
 		}
-		if(  currently_producing || desc->get_product_count() == 0  ) {
+		if( ( currently_producing || desc->get_product_count() == 0 ) && !desc->is_electricity_producer() ) {
 			// Pure consumers (i.e., those that do not produce anything) should require full power at all times
 			// requires full power even if runs out of raw material next cycle
 			power_demand = scaled_electric_demand;
