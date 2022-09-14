@@ -3502,8 +3502,8 @@ void fabrik_t::negotiate_contracts(){
 		const sint64 pfactor = (sint64)get_desc()->get_product(i)->get_factor();
 		const sint32 monthly_prod = get_monthly_production(pfactor);
 		const sint32 monthly_cont = output[i].get_total_contracts();
-		//check for too much or far too few output contracts
-		if(monthly_prod < monthly_cont || monthly_prod > monthly_cont * 8){
+		//check for too many output contracts
+		if(monthly_prod < monthly_cont){
 			//reduce contracts starting with furthest factory
 			for(uint32 j = output[i].link_count()-1; j < output[i].link_count(); j--){
 				sint32 contract_diff=output[i].get_total_contracts() - monthly_prod;
@@ -3554,7 +3554,7 @@ void fabrik_t::negotiate_contracts(){
 			monthly_prod=(monthly_prod * input[i].max_transit) / input[i].get_in_transit();
 		}
 		sint32 monthly_cont = input[i].get_total_contracts();
-		if(monthly_prod * 10 < monthly_cont * 11 || monthly_prod > monthly_cont){
+		if(monthly_prod * 8 < monthly_cont * 9 || monthly_prod * 7 > monthly_cont * 8){
 			//too little or too much input
 			//start by adding to active staffed supliers or removing from unstaffed or inactive supliers
 			for(uint32 j = input[i].link_count()-1; j < input[i].link_count(); j--){
@@ -3608,7 +3608,7 @@ void fabrik_t::negotiate_contracts(){
 				}
 			}
 			monthly_cont = input[i].get_total_contracts();
-			if(monthly_prod > monthly_cont && untapped_sources){
+			if(monthly_prod * 7 > monthly_cont * 8 && untapped_sources){
 				//Still too little, try to fill more agressively
 				for(uint32 j = 0; j < input[i].link_count(); j++){
 					sint32 contract_diff=monthly_prod - input[i].get_total_contracts();
@@ -3632,7 +3632,7 @@ void fabrik_t::negotiate_contracts(){
 				}
 			}
 			monthly_cont = input[i].get_total_contracts();
-			if(monthly_prod > monthly_cont){
+			if(monthly_prod * 7 > monthly_cont * 8){
 				//still too little, but all linked supliers exausted
 				//Call functions to try to find another suplier(s) to link to
 				factory_builder_t::build_chain_link(this,this->get_desc(),i,welt->get_public_player(),true);
