@@ -3550,8 +3550,8 @@ void fabrik_t::negotiate_contracts(){
 			monthly_prod=(monthly_prod * manufacturing_factor) / DEFAULT_PRODUCTION_FACTOR;
 		}
 		//scale down used monthly production figure when intransit levels are too high
-		if(input[i].get_in_transit() > input[i].max_transit){
-			monthly_prod=(monthly_prod * input[i].max_transit) / input[i].get_in_transit();
+		if(input[i].get_in_transit() + input[i].menge > input[i].max_transit){
+			monthly_prod=(monthly_prod * input[i].max_transit) / (input[i].get_in_transit() + input[i].menge);
 		}
 		sint32 monthly_cont = input[i].get_total_contracts();
 		if(monthly_prod * 8 < monthly_cont * 9 || monthly_prod * 7 > monthly_cont * 8){
