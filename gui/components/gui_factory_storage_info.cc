@@ -505,6 +505,7 @@ void gui_factory_connection_stat_t::draw(scr_coord offset)
 					}
 				}
 				if(contract>=0){
+					buf.clear();
 					if(contract < 100){
 						buf.printf(translator::translate(" %.1f Units per Mo."),(float)contract / 10.0);
 					}else{

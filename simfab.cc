@@ -198,9 +198,6 @@ void ware_production_t::add_contracts(sint32 add, ware_production_t &ware_in, wa
 	sint32 total_in = ware_in.get_total_contracts();
 	sint32 total_out = ware_out.get_total_contracts();
 
-	assert(cont <= total_in);
-	assert(cont <= total_out);
-
 	//avoid adding contracts beyond current production
 	if(add>0 && total_out + add > max_output){
 		add = max_output - total_out;
@@ -3136,6 +3133,7 @@ void fabrik_t::new_month()
 		if(output.get_count()){
 			uint32 missing_contracts=0;
 			bool reset_missing_contracts=false;
+			//check if not outputing anything
 			for(uint32 i = 0; i < output.get_count(); i++){
 				if(output[i].get_total_contracts()==0){
 					missing_contracts++;
@@ -3144,6 +3142,7 @@ void fabrik_t::new_month()
 			if(missing_contracts!=output.get_count()){
 				reset_missing_contracts=true;
 			}
+			//or are missing a good type
 			for(uint32 i = 0; i < input.get_count(); i++){
 				if(input[i].get_total_contracts()==0){
 					reset_missing_contracts=false;
@@ -3159,6 +3158,7 @@ void fabrik_t::new_month()
 			months_missing_contracts=0;
 		}
 
+		//should close factories that were missing contracts for more than 12 months or unproductive for 60 months
 		if(months_unproductive>12*5 || months_missing_contracts>12){
 			welt->should_close_factories_this_month.append(this,months_unproductive+months_missing_contracts);
 		}
